@@ -398,19 +398,27 @@ app = FastAPI(
 
 # Add middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Parse ALLOWED_HOSTS from comma-separated string to list
+allowed_hosts_list = [host.strip() for host in settings.ALLOWED_HOSTS.split(",")]
+# Add wildcard for development
+if settings.DEBUG:
+    allowed_hosts_list.append("*")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_HOSTS,
+    allow_origins=allowed_hosts_list if not settings.DEBUG else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Security middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS
-)
+# Security middleware - only in production
+if not settings.DEBUG:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=allowed_hosts_list
+    )
 
 # Exception handlers
 @app.exception_handler(HTTPException)
@@ -445,6 +453,7 @@ async def general_exception_handler(request, exc):
 # Include routers
 app.include_router(
     auth.router,
+    prefix="/api",
     tags=["authentication"]
 )
 
