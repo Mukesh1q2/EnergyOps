@@ -1,0 +1,24 @@
+
+> optibid-energy-frontend@1.0.0 build
+> next build
+
+[Next.js] Generated Build ID: build-1763914957329-a9ehv8
+   Γû▓ Next.js 14.0.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./lib/hooks.ts:46:23
+Type error: Argument of type '{ type: "success"; title: string; message: string; }' is not assignable to parameter of type 'Omit<Notification, "id" | "timestamp">'.
+  Property 'read' is missing in type '{ type: "success"; title: string; message: string; }' but required in type 'Omit<Notification, "id" | "timestamp">'.
+
+  44 |     onSuccess: () => {
+  45 |       queryClient.invalidateQueries('assets')
+> 46 |       addNotification({
+     |                       ^
+  47 |         type: 'success',
+  48 |         title: 'Asset Created',
+  49 |         message: 'New asset has been successfully created.'

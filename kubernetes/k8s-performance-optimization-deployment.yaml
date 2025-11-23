@@ -1,0 +1,323 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: optibid-performance-optimization
+  namespace: optibid
+  labels:
+    app: optibid-performance-optimization
+    component: performance-optimization
+    phase: "8"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: optibid-performance-optimization
+  template:
+    metadata:
+      labels:
+        app: optibid-performance-optimization
+        component: performance-optimization
+        phase: "8"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: optibid-backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: performance-optimization
+        image: optibid/backend:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: database-url
+        
+        # Redis Configuration for Performance Cache
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: redis-url
+        - name: REDIS_CLUSTER_NODES
+          valueFrom:
+            configMapKeyRef:
+              name: optibid-config
+              key: redis-cluster-nodes
+        
+        # Kafka Configuration
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom:
+            configMapKeyRef:
+              name: optibid-config
+              key: kafka-bootstrap-servers
+        
+        # Market Data API Keys
+        - name: PJM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: pjm-api-key
+        - name: PJM_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: pjm-api-secret
+        - name: CAISO_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: caiso-api-key
+        - name: ERCOT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: ercot-api-key
+        
+        # Security Configuration
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: jwt-secret-key
+        
+        # Performance Optimization Configuration
+        - name: PERFORMANCE_CACHE_TTL
+          value: "3600"
+        - name: PERFORMANCE_CACHE_SIZE
+          value: "1000"
+        - name: MONITORING_RETENTION_HOURS
+          value: "24"
+        - name: CDN_COMPRESSION_ENABLED
+          value: "true"
+        - name: PWA_PUSH_NOTIFICATIONS_ENABLED
+          value: "true"
+        - name: ANALYTICS_REAL_TIME_PROCESSING
+          value: "true"
+        
+        # Cache Performance Tuning
+        - name: CACHE_COMPRESSION_THRESHOLD
+          value: "1024"
+        - name: MONITORING_SAMPLE_RATE
+          value: "1.0"
+        - name: CDN_IMAGE_QUALITY
+          value: "85"
+        
+        # Resource Management
+        - name: PERFORMANCE_WORKER_CONCURRENCY
+          value: "4"
+        - name: ANALYTICS_BATCH_SIZE
+          value: "100"
+        
+        # Environment
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: optibid-config
+              key: environment
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: optibid-config
+              key: log-level
+        
+        # Health Check Configuration
+        - name: HEALTH_CHECK_INTERVAL
+          value: "30"
+        - name: STARTUP_PROBE_TIMEOUT
+          value: "60"
+        - name: LIVENESS_PROBE_TIMEOUT
+          value: "30"
+        - name: READINESS_PROBE_TIMEOUT
+          value: "5"
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        # Health Probes
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /api/v1/performance/health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 12
+          successThreshold: 1
+        
+        # Security Context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        
+        # Volume Mounts
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache-data
+          mountPath: /app/cache
+        - name: logs
+          mountPath: /app/logs
+        
+        # Environment Variables for Performance
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: UVICORN_WORKERS
+          value: "1"
+        - name: UVICORN_TIMEOUT_KEEP_ALIVE
+          value: "60"
+      
+      # Init Containers for Performance Optimization
+      initContainers:
+      - name: performance-warmup
+        image: optibid/backend:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: 
+        - python
+        - -c
+        - |
+          import asyncio
+          import time
+          print("Performance optimization warmup started...")
+          
+          # Warm up common cache keys
+          warmup_keys = [
+            "dashboard:market_summary:1h",
+            "dashboard:market_summary:24h", 
+            "analytics:metrics:1d:1h",
+            "analytics:metrics:7d:1d"
+          ]
+          
+          print(f"Warming up {len(warmup_keys)} cache keys...")
+          time.sleep(5)  # Simulate warmup time
+          print("Performance optimization warmup completed")
+        env:
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: optibid-config
+              key: environment
+        
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache-data
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      
+      # Node Selection
+      nodeSelector:
+        workload-type: compute
+      
+      # Tolerations
+      tolerations:
+      - key: "optibid-workload"
+        operator: "Equal"
+        value: "performance-optimization"
+        effect: "NoSchedule"
+      
+      # Affinity Rules
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - compute
+                - general-purpose
+        
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - optibid-performance-optimization
+              topologyKey: kubernetes.io/hostname
+        
+        # Spread pods across availability zones
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: component
+                  operator: In
+                  values:
+                  - performance-optimization
+              topologyKey: topology.kubernetes.io/zone
+      
+      # DNS Configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0

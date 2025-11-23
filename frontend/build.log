@@ -1,0 +1,23 @@
+
+> optibid-energy-frontend@1.0.0 build
+> next build
+
+[Next.js] Generated Build ID: build-1763917062745-pln2ye
+   Γû▓ Next.js 14.0.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./lib/websocket.ts:431:11
+Type error: Object literal may only specify known properties, and 'onClick' does not exist in type 'Partial<Pick<Toast, "id" | "icon" | "duration" | "ariaProps" | "className" | "style" | "position" | "iconTheme" | "toasterId" | "removeDelay">>'.
+
+  429 |         {
+  430 |           duration: Infinity,
+> 431 |           onClick: () => {
+      |           ^
+  432 |             this.manualReconnect();
+  433 |           }
+  434 |         }

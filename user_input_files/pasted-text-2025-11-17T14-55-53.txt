@@ -1,0 +1,215 @@
+Quick additions & gaps to close (high priority)
+
+Schema registry & CDC
+
+Add Avro/Protobuf schema registry (Confluent/Apicurio) + Debezium for Change Data Capture to keep data contracts stable and enable safe schema evolution.
+
+Data catalog & lineage
+
+Central data catalog (DataHub/Amundsen) with lineage tracking, column-level metadata, PII tags, owners, and data quality scores.
+
+Feature store & model explainability
+
+Feature store (Feast) for consistent feature computation across training/serving.
+
+Model explainability (SHAP/Integrated Gradients) and an “explain” endpoint for all ML predictions.
+
+Model governance & CI for ML
+
+Model registry (MLflow), automated retrain pipelines, model approval workflows, drift detection, and automated rollbacks.
+
+Operational runbooks & playbooks
+
+Incident runbooks (on-call steps, escalation, rollback, communication), runbook tests, and a runbook library per critical service.
+
+SLOs, alerts & budgeted error-handling
+
+Concrete SLOs with error budget and automated alerting thresholds (see sample SLOs below).
+
+Backup, retention & recovery SLAs
+
+Retention policy per data class, automated encrypted backups, quarterly restore drills, defined RTO/RPO per tier.
+
+End-to-end testing & chaos
+
+E2E tests (Playwright), contract tests for APIs, load tests (k6), and periodic chaos engineering (chaos monkey) for resilience validation.
+
+Privacy & legal
+
+DPIA (Data Protection Impact Assessment), consent management, cookie policy controls, export & delete data flows (data subject requests), India data-residency enforcement.
+
+Vendor / Market-feed integrations
+
+Standard connectors for market feeds (PX/day-ahead, frequency/SCADA, weather, ISO APIs). Include contract/legal SLA review for each feed.
+
+Cost visibility & billing telemetry
+
+Per-org cost meters (compute, storage, model tokens) surfaced in billing to prevent runaway charges.
+
+Governance for LLM & automation
+
+Guardrails & human-in-the-loop for auto-bids; LLM provenance + RAG citations + audit trail for suggestions.
+
+Concrete SLO / SLA suggestions (examples you can adopt)
+
+Availability: 99.9% for core API and dashboard (enterprise) — measured monthly.
+
+Latency:
+
+Dashboard initial render (avg): < 2s
+
+Time-series query (1h window): p95 < 300ms
+
+Forecast API: p95 < 2s for small payload; < 10s for large jobs (async recommended)
+
+Data ingestion: 99% of events accepted and available in timeseries DB within 30s.
+
+Model freshness: retrain triggers when drift > threshold or every X days (configurable).
+
+RTO / RPO:
+
+Critical systems: RTO ≤ 1 hour, RPO ≤ 15 minutes
+
+Non-critical: RTO ≤ 24 hours, RPO ≤ 6 hours
+
+Add SLAs to pricing tiers and reflect financial credits/triggers in legal docs.
+
+Data & security policies (practical defaults)
+
+Retention: Raw events 90 days; aggregates 3 years; audit logs 7 years (configurable).
+
+Encryption: TLS 1.2+, AES-256 at rest, KMS-managed keys rotated every 90 days.
+
+Secrets: Rotate service credentials quarterly; no long-lived tokens in repos.
+
+DLP: block exports of PII unless allowed by role + approval flow.
+
+Pen test cadence: quarterly automated + annual manual pentest.
+
+ML / LLM governance and safety
+
+Experimentation: feature-branch model registry + canary inference traffic split (1-5%) before full roll-out.
+
+Explainability: require SHAP or SHAP-like explanation for every production prediction; attach to LLM suggestions a confidence band and citation (RAG).
+
+Human-in-loop: auto-bids require human approval above configurable thresholds (e.g., > $X or > Y MW).
+
+LLM Safety: filter prompts for sensitive operations; sign every recommendation with source docs & last-updated timestamp.
+
+Observability & monitoring (concrete alerts)
+
+APM: track p99 latency, error rate > 1% triggers alert.
+
+Ingestion: if Kafka consumer lag > X partitions for > 2 minutes → page on-call.
+
+Storage: TimescaleDB disk > 80% → alert.
+
+Model drift: data/label distribution shift > threshold → auto-create ticket + alert.
+
+Audit integrity: if audit log append fails → immediate critical alert.
+
+Testing matrix (must have)
+
+Unit tests, integration tests, contract tests (schema evolution), E2E, accessibility (axe), performance/load tests, security scans (SAST/DAST), chaos runs, backup restore tests.
+
+Pricing & metering operational details
+
+Meter compute for model inferencing and streaming separately; expose usage dashboard.
+
+Implement soft and hard quotas per org to avoid runaway cost.
+
+Provide an “enterprise connector” SKU for on-prem LLM and private data residency.
+
+Legal & compliance checklist
+
+DPA, ToS, privacy policy with clear data flows.
+
+SOC2 roadmap (controls map), ISO 27001 evidence pack.
+
+Local compliance (India): data residency options & legal counsel review for market data reseller agreements.
+
+Team & role recommendations (additions)
+
+Add Data Governance Lead (owner of catalog, lineage, PII, retention).
+
+Add SRE / On-call rotation with runbook ownership.
+
+Add ML Ops Engineer managing model registry, drift, and feature store.
+
+Add Compliance / Security Engineer for audits, pentests, vendor due diligence.
+
+Prioritized 12-week sprint plan (practical & deliverable-focused)
+
+Goal: move from MVP → production-ready baseline for enterprise trials.
+
+Weeks 1–2: Foundation & Security Harden
+
+Provision infra: k8s, Kafka (managed if preferred), Postgres+Timescale, Redis, S3.
+
+Implement OAuth2/OIDC, initial RBAC, audit-logging pipeline.
+
+Deploy Prometheus + Grafana, set basic alerts.
+
+Start schema registry & schema-first definitions for core topics.
+
+Deliverables: infra running, auth working, monitoring baseline.
+
+Weeks 3–4: Core Dashboard + Upload
+
+Implement dashboard shell + react-grid-layout + theme adapter (4 modes).
+
+File upload + auto-schema detection + quick preview.
+
+Basic timeseries widget + CSV -> timescale ingestion path.
+
+Add sample India map pins + Google Maps integration.
+
+Deliverables: First dashboard with upload-to-visualization flow.
+
+Weeks 5–6: Streaming + APIs
+
+WebSocket bridge from Kafka; demo live chart updates.
+
+Implement API gateway & OpenAPI skeleton for main endpoints.
+
+Schema registry integrated for streaming topics.
+
+SLO definitions and alerting thresholds codified.
+
+Deliverables: Real-time demo dashboard; basic API docs.
+
+Weeks 7–8: Forecasting & Optimization MVP
+
+Deploy Prophet forecasting microservice with endpoint /predict.
+
+Implement optimizer microservice (OR-Tools) with simple constraints.
+
+Add model registry (MLflow) basic integration.
+
+Add model explainability endpoint (SHAP basic).
+
+Deliverables: Forecast + optimize demo on uploaded dataset.
+
+Weeks 9–10: Security & Enterprise Readiness
+
+SSO (SAML) onboarding for 1 test org; SCIM stub.
+
+Enforce MFA for admins; session management UI.
+
+Backup & restore job automation + first restore test.
+
+Run automated vulnerability scans & fix high issues.
+
+Deliverables: SSO working in test org, backup validated.
+
+Weeks 11–12: Docs, Billing, Sharing & Controls
+
+Billing & invoicing integration (Stripe/Razorpay) + usage meter.
+
+Admin panel: feature flags & theme editor + per-org quotas.
+
+Shareable dashboard link with expiry & permissions.
+
+Publish API docs (Swagger) + developer quickstart.
+
+Deliverables: Admin control + billing + public docs.

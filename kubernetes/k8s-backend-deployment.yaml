@@ -1,0 +1,315 @@
+# OptiBid Energy: Backend API Deployment
+# Production-ready Kubernetes deployment with security and scaling
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: optibid-backend
+  namespace: optibid
+  labels:
+    app: optibid-backend
+    version: v1.0.0
+    component: api
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: optibid-backend
+  template:
+    metadata:
+      labels:
+        app: optibid-backend
+        version: v1.0.0
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: backend
+        image: optibid/backend:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: health
+          containerPort: 8001
+          protocol: TCP
+        - name: kafka
+          containerPort: 9092
+          protocol: TCP
+        - name: market-data
+          containerPort: 8002
+          protocol: TCP
+        - name: performance-optimization
+          containerPort: 8003
+          protocol: TCP
+        env:
+        # Application Configuration
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: DEBUG
+          value: "false"
+        
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: database-url
+        - name: DATABASE_POOL_SIZE
+          value: "20"
+        - name: DATABASE_MAX_OVERFLOW
+          value: "30"
+        
+        # Redis Configuration
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: redis-url
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: redis-password
+        
+        # Security Configuration
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: secret-key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: jwt-secret-key
+        - name: JWT_ALGORITHM
+          value: "HS256"
+        - name: JWT_EXPIRE_MINUTES
+          value: "15"
+        
+        # Billing Configuration
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: stripe-secret-key
+              optional: true
+        - name: STRIPE_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: stripe-webhook-secret
+              optional: true
+        
+        # SSO Configuration
+        - name: SSO_PROVIDERS
+          value: "google,azure,okta"
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: google-client-id
+              optional: true
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: azure-client-id
+              optional: true
+        
+        # Market Data Integration (Phase 7)
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-cluster:9092"
+        - name: MARKET_DATA_API_ENABLED
+          value: "true"
+        
+        # PJM API Configuration
+        - name: PJM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: pjm-api-key
+              optional: true
+        - name: PJM_API_URL
+          value: "https://api.pjm.com/api/v1"
+        
+        # CAISO API Configuration (Public)
+        - name: CAISO_API_URL
+          value: "https://www.caiso.com/TodaysOutlook/Pages/Price.aspx"
+        
+        # ERCOT API Configuration (Public)
+        - name: ERCOT_API_URL
+          value: "https://api.ercot.com/api/public-reports"
+        
+        # Market Data Processing Configuration
+        - name: MARKET_DATA_REFRESH_INTERVAL
+          value: "30"  # seconds
+        - name: HISTORICAL_DATA_BACKFILL_ENABLED
+          value: "true"
+        - name: DATA_QUALITY_MONITORING_ENABLED
+          value: "true"
+        
+        # Monitoring
+        - name: PROMETHEUS_METRICS
+          value: "true"
+        - name: JAEGER_ENDPOINT
+          value: "http://jaeger-collector:14268/api/traces"
+        
+        # Resource Limits
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: health
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+      
+      # Service Account for security
+      serviceAccountName: optibid-backend
+      automountServiceAccountToken: true
+      
+      # Node Affinity for workload distribution
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values: ["compute-optimized"]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["optibid-backend"]
+              topologyKey: kubernetes.io/hostname
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: optibid-backend
+  namespace: optibid
+  labels:
+    app: optibid-backend
+    component: api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 8001
+    targetPort: health
+    protocol: TCP
+    name: health
+  selector:
+    app: optibid-backend
+
+---
+# Backend Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: optibid-backend-pdb
+  namespace: optibid
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: optibid-backend
+
+---
+# Service Account for Backend
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: optibid-backend
+  namespace: optibid
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/optibid-backend-role
+
+---
+# ConfigMap for Backend Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optibid-backend-config
+  namespace: optibid
+data:
+  app.conf: |
+    [application]
+    environment = production
+    debug = false
+    log_level = INFO
+    
+    [api]
+    host = 0.0.0.0
+    port = 8000
+    workers = 4
+    
+    [database]
+    pool_size = 20
+    max_overflow = 30
+    pool_timeout = 30
+    pool_recycle = 3600
+    
+    [security]
+    password_min_length = 12
+    rate_limit_attempts = 5
+    rate_limit_window = 900
+    account_lockout_duration = 1800
+    
+    [monitoring]
+    enable_metrics = true
+    enable_tracing = true
+    metrics_port = 8001

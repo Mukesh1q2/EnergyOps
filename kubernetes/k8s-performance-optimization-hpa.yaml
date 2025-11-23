@@ -1,0 +1,113 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: optibid-performance-optimization-hpa
+  namespace: optibid
+  labels:
+    app: optibid-performance-optimization
+    component: performance-optimization
+    phase: "8"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: optibid-performance-optimization
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  # CPU utilization metric
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory utilization metric
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom metric for cache hit ratio
+  - type: Pods
+    pods:
+      metric:
+        name: cache_hit_ratio
+      target:
+        type: AverageValue
+        averageValue: "0.8"
+  # Custom metric for response time
+  - type: Pods
+    pods:
+      metric:
+        name: average_response_time_seconds
+      target:
+        type: AverageValue
+        averageValue: "2"
+  
+  # Behavior configuration
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minutes
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60  # 1 minute
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+      selectPolicy: Max
+  
+  # Scaling policy based on business metrics
+  customMetrics:
+  - type: External
+    external:
+      metric:
+        name: performance_optimization_queue_size
+        selector:
+          matchLabels:
+            service: optibid-performance-optimization
+      target:
+        type: AverageValue
+        averageValue: "50"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: optibid-performance-optimization-vpa
+  namespace: optibid
+  labels:
+    app: optibid-performance-optimization
+    component: performance-optimization-vpa
+    phase: "8"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: optibid-performance-optimization
+  minReplicas: 2
+  maxReplicas: 8
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: performance-optimization
+      minAllowed:
+        cpu: 100m
+        memory: 256Mi
+      maxAllowed:
+        cpu: 1000m
+        memory: 2Gi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits

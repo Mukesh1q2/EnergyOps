@@ -1,0 +1,237 @@
+# Prometheus Backup and Disaster Recovery Alerting Rules
+# OptiBid Energy Platform
+
+groups:
+  - name: backup_alerts
+    interval: 60s
+    rules:
+      # Backup Job Status
+      - alert: BackupJobFailed
+        expr: backup_job_status == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: backup
+          component: backup_service
+        annotations:
+          summary: "CRITICAL: Backup job has failed"
+          description: "Backup job has been failing for more than 5 minutes. Data loss risk."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/job-failed"
+
+      - alert: BackupJobNotRun
+        expr: time() - backup_job_last_success_timestamp > 86400
+        for: 1h
+        labels:
+          severity: critical
+          category: backup
+          component: backup_service
+        annotations:
+          summary: "CRITICAL: Backup job has not run in 24 hours"
+          description: "No successful backup in the last 24 hours. Immediate attention required."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/job-not-run"
+
+      - alert: BackupJobDurationHigh
+        expr: backup_job_duration_seconds > 3600
+        for: 10m
+        labels:
+          severity: warning
+          category: backup
+          component: backup_service
+        annotations:
+          summary: "Backup job taking longer than expected"
+          description: "Backup job is taking more than 1 hour. Check for performance issues."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/slow-backup"
+
+      # Backup Storage
+      - alert: BackupStorageLow
+        expr: backup_storage_available_bytes / backup_storage_total_bytes < 0.2
+        for: 30m
+        labels:
+          severity: warning
+          category: backup
+          component: storage
+        annotations:
+          summary: "Backup storage running low"
+          description: "Less than 20% of backup storage available. Consider cleanup or expansion."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/storage-low"
+
+      - alert: BackupStorageCritical
+        expr: backup_storage_available_bytes / backup_storage_total_bytes < 0.1
+        for: 10m
+        labels:
+          severity: critical
+          category: backup
+          component: storage
+        annotations:
+          summary: "CRITICAL: Backup storage critically low"
+          description: "Less than 10% of backup storage available. Immediate action required."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/storage-critical"
+
+      - alert: BackupSizeIncreasing
+        expr: |
+          (
+            backup_size_bytes - 
+            backup_size_bytes offset 7d
+          ) / backup_size_bytes offset 7d > 0.5
+        for: 1h
+        labels:
+          severity: info
+          category: backup
+          component: storage
+        annotations:
+          summary: "Backup size increased significantly"
+          description: "Backup size has increased by more than 50% in the last week. Review data growth."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/size-increase"
+
+      # Backup Replication
+      - alert: BackupReplicationFailed
+        expr: backup_replication_status == 0
+        for: 10m
+        labels:
+          severity: critical
+          category: backup
+          component: replication
+        annotations:
+          summary: "CRITICAL: Backup replication has failed"
+          description: "Cross-region backup replication is failing. Disaster recovery at risk."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/replication-failed"
+
+      - alert: BackupReplicationLag
+        expr: backup_replication_lag_seconds > 3600
+        for: 30m
+        labels:
+          severity: warning
+          category: backup
+          component: replication
+        annotations:
+          summary: "Backup replication lag is high"
+          description: "Backup replication is lagging by more than 1 hour. Check network and service health."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/replication-lag"
+
+      # Backup Verification
+      - alert: BackupVerificationFailed
+        expr: backup_verification_status == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: backup
+          component: verification
+        annotations:
+          summary: "CRITICAL: Backup verification failed"
+          description: "Backup verification has failed. Backup may be corrupted."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/verification-failed"
+
+      - alert: BackupNotVerified
+        expr: time() - backup_last_verification_timestamp > 604800
+        for: 1h
+        labels:
+          severity: warning
+          category: backup
+          component: verification
+        annotations:
+          summary: "Backup has not been verified in 7 days"
+          description: "No backup verification in the last 7 days. Schedule verification test."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/not-verified"
+
+      # Backup Retention
+      - alert: BackupRetentionViolation
+        expr: backup_oldest_backup_age_days < 30
+        for: 1h
+        labels:
+          severity: warning
+          category: backup
+          component: retention
+        annotations:
+          summary: "Backup retention policy violation"
+          description: "Oldest backup is less than 30 days old. Retention policy may not be met."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/retention-violation"
+
+      - alert: BackupRetentionExceeded
+        expr: backup_oldest_backup_age_days > 2555
+        for: 1h
+        labels:
+          severity: info
+          category: backup
+          component: retention
+        annotations:
+          summary: "Backup retention exceeded"
+          description: "Backups older than 7 years exist. Consider cleanup per retention policy."
+          runbook_url: "https://docs.optibid.io/runbooks/backup/retention-exceeded"
+
+  - name: disaster_recovery_alerts
+    interval: 60s
+    rules:
+      # RTO/RPO Monitoring
+      - alert: RTOAtRisk
+        expr: estimated_recovery_time_seconds > 7200
+        for: 10m
+        labels:
+          severity: warning
+          category: disaster_recovery
+          component: rto
+        annotations:
+          summary: "Recovery Time Objective (RTO) at risk"
+          description: "Estimated recovery time exceeds 2-hour RTO target. Review DR procedures."
+          runbook_url: "https://docs.optibid.io/runbooks/dr/rto-at-risk"
+
+      - alert: RPOAtRisk
+        expr: time() - last_backup_timestamp > 3600
+        for: 10m
+        labels:
+          severity: warning
+          category: disaster_recovery
+          component: rpo
+        annotations:
+          summary: "Recovery Point Objective (RPO) at risk"
+          description: "Last backup is older than 1-hour RPO target. Data loss risk increasing."
+          runbook_url: "https://docs.optibid.io/runbooks/dr/rpo-at-risk"
+
+      # DR Site Health
+      - alert: DRSiteUnhealthy
+        expr: dr_site_health_status == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: disaster_recovery
+          component: dr_site
+        annotations:
+          summary: "CRITICAL: DR site is unhealthy"
+          description: "Disaster recovery site is not responding. Failover capability compromised."
+          runbook_url: "https://docs.optibid.io/runbooks/dr/site-unhealthy"
+
+      - alert: DRSiteNotTested
+        expr: time() - dr_last_test_timestamp > 7776000
+        for: 1h
+        labels:
+          severity: warning
+          category: disaster_recovery
+          component: dr_testing
+        annotations:
+          summary: "DR site has not been tested in 90 days"
+          description: "Disaster recovery procedures should be tested quarterly. Schedule DR test."
+          runbook_url: "https://docs.optibid.io/runbooks/dr/test-overdue"
+
+      # Database Replication
+      - alert: DatabaseReplicationLag
+        expr: database_replication_lag_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: disaster_recovery
+          component: database
+        annotations:
+          summary: "Database replication lag is high"
+          description: "Database replication is lagging by more than 5 minutes. RPO at risk."
+          runbook_url: "https://docs.optibid.io/runbooks/dr/replication-lag"
+
+      - alert: DatabaseReplicationBroken
+        expr: database_replication_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: disaster_recovery
+          component: database
+        annotations:
+          summary: "CRITICAL: Database replication is broken"
+          description: "Database replication has stopped. Disaster recovery capability compromised."
+          runbook_url: "https://docs.optibid.io/runbooks/dr/replication-broken"

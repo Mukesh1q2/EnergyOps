@@ -1,0 +1,240 @@
+# Prometheus Security Alerting Rules
+# OptiBid Energy Platform
+
+groups:
+  - name: security_alerts
+    interval: 30s
+    rules:
+      # Authentication Security
+      - alert: HighFailedLoginAttempts
+        expr: rate(failed_login_attempts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          component: authentication
+        annotations:
+          summary: "High failed login attempts detected"
+          description: "More than 10 failed login attempts per second in the last 5 minutes. Possible brute force attack."
+          runbook_url: "https://docs.optibid.io/runbooks/security/failed-logins"
+
+      - alert: CriticalFailedLoginAttempts
+        expr: rate(failed_login_attempts_total[5m]) > 50
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: authentication
+        annotations:
+          summary: "CRITICAL: Very high failed login attempts"
+          description: "More than 50 failed login attempts per second. Active brute force attack likely."
+          runbook_url: "https://docs.optibid.io/runbooks/security/brute-force-attack"
+
+      - alert: UnusualLoginPattern
+        expr: |
+          (
+            rate(successful_login_attempts_total[1h]) > 
+            avg_over_time(successful_login_attempts_total[24h]) * 3
+          )
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+          component: authentication
+        annotations:
+          summary: "Unusual login pattern detected"
+          description: "Login rate is 3x higher than 24-hour average. Investigate for credential stuffing."
+          runbook_url: "https://docs.optibid.io/runbooks/security/unusual-activity"
+
+      # MFA Security
+      - alert: HighMFAFailureRate
+        expr: |
+          (
+            rate(mfa_verification_failed_total[5m]) / 
+            rate(mfa_verification_attempts_total[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: mfa
+        annotations:
+          summary: "High MFA failure rate"
+          description: "More than 50% of MFA verifications are failing. Check MFA service health."
+          runbook_url: "https://docs.optibid.io/runbooks/security/mfa-failures"
+
+      - alert: MFABypassAttempt
+        expr: rate(mfa_bypass_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: mfa
+        annotations:
+          summary: "CRITICAL: MFA bypass attempt detected"
+          description: "Attempts to bypass MFA have been detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/mfa-bypass"
+
+      # Token Security
+      - alert: HighInvalidTokenRate
+        expr: rate(invalid_token_attempts_total[5m]) > 20
+        for: 3m
+        labels:
+          severity: warning
+          category: security
+          component: jwt
+        annotations:
+          summary: "High invalid token rate"
+          description: "More than 20 invalid token attempts per second. Possible token theft or replay attack."
+          runbook_url: "https://docs.optibid.io/runbooks/security/invalid-tokens"
+
+      - alert: ExpiredTokenUsageSpike
+        expr: rate(expired_token_usage_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          category: security
+          component: jwt
+        annotations:
+          summary: "Spike in expired token usage"
+          description: "Users are frequently using expired tokens. May indicate clock skew or UX issues."
+          runbook_url: "https://docs.optibid.io/runbooks/security/expired-tokens"
+
+      # Authorization Security
+      - alert: UnauthorizedAccessAttempts
+        expr: rate(unauthorized_access_attempts_total[5m]) > 5
+        for: 3m
+        labels:
+          severity: warning
+          category: security
+          component: authorization
+        annotations:
+          summary: "High unauthorized access attempts"
+          description: "More than 5 unauthorized access attempts per second. Possible privilege escalation attempt."
+          runbook_url: "https://docs.optibid.io/runbooks/security/unauthorized-access"
+
+      - alert: CrossOrganizationAccessAttempt
+        expr: rate(cross_org_access_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: authorization
+        annotations:
+          summary: "CRITICAL: Cross-organization access attempt"
+          description: "Attempts to access data from different organization detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/cross-org-access"
+
+      # Rate Limiting
+      - alert: RateLimitViolations
+        expr: rate(rate_limit_exceeded_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: rate_limiting
+        annotations:
+          summary: "High rate limit violations"
+          description: "More than 100 rate limit violations per second. Possible DoS attack or misconfigured client."
+          runbook_url: "https://docs.optibid.io/runbooks/security/rate-limit-violations"
+
+      - alert: RateLimitServiceDown
+        expr: rate_limit_service_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+          component: rate_limiting
+        annotations:
+          summary: "CRITICAL: Rate limiting service unavailable"
+          description: "Rate limiting service is down. API is vulnerable to abuse."
+          runbook_url: "https://docs.optibid.io/runbooks/security/rate-limit-down"
+
+      # Session Security
+      - alert: UnusualSessionCreationRate
+        expr: rate(session_created_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: session
+        annotations:
+          summary: "Unusual session creation rate"
+          description: "More than 100 sessions created per second. Investigate for session fixation attacks."
+          runbook_url: "https://docs.optibid.io/runbooks/security/session-creation"
+
+      - alert: SessionHijackingAttempt
+        expr: rate(session_hijacking_detected_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: session
+        annotations:
+          summary: "CRITICAL: Session hijacking attempt detected"
+          description: "Session hijacking attempts have been detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/session-hijacking"
+
+      # API Key Security
+      - alert: InvalidAPIKeyUsage
+        expr: rate(invalid_api_key_attempts_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          component: api_key
+        annotations:
+          summary: "High invalid API key usage"
+          description: "More than 10 invalid API key attempts per second. Possible API key theft."
+          runbook_url: "https://docs.optibid.io/runbooks/security/invalid-api-keys"
+
+      - alert: APIKeyLeakDetected
+        expr: api_key_leak_detected == 1
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: api_key
+        annotations:
+          summary: "CRITICAL: API key leak detected"
+          description: "An API key has been detected in public repositories or logs. Immediate rotation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/api-key-leak"
+
+      # SQL Injection Detection
+      - alert: SQLInjectionAttempt
+        expr: rate(sql_injection_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: database
+        annotations:
+          summary: "CRITICAL: SQL injection attempt detected"
+          description: "SQL injection attempts have been detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/sql-injection"
+
+      # XSS Detection
+      - alert: XSSAttempt
+        expr: rate(xss_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: web
+        annotations:
+          summary: "CRITICAL: XSS attempt detected"
+          description: "Cross-site scripting attempts have been detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/xss-attack"
+
+      # CSRF Detection
+      - alert: CSRFAttempt
+        expr: rate(csrf_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          component: web
+        annotations:
+          summary: "CRITICAL: CSRF attempt detected"
+          description: "Cross-site request forgery attempts have been detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/security/csrf-attack"

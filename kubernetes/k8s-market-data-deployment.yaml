@@ -1,0 +1,277 @@
+# OptiBid Energy: Market Data Integration Service Deployment
+# Handles real-time market data ingestion for PJM, CAISO, ERCOT
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: optibid-market-data
+  namespace: optibid
+  labels:
+    app: optibid-market-data
+    version: v1.0.0
+    component: market-data
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: optibid-market-data
+  template:
+    metadata:
+      labels:
+        app: optibid-market-data
+        version: v1.0.0
+        component: market-data
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8003"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: market-data-service
+        image: optibid/market-data-service:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8003
+          protocol: TCP
+        - name: health
+          containerPort: 8004
+          protocol: TCP
+        - name: kafka-consumer
+          containerPort: 9093
+          protocol: TCP
+        env:
+        # Application Configuration
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: SERVICE_NAME
+          value: "market-data-integration"
+        
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: database-url
+        - name: DATABASE_POOL_SIZE
+          value: "10"
+        
+        # Kafka Configuration
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-cluster:9092"
+        - name: KAFKA_CONSUMER_GROUP
+          value: "market-data-processors"
+        - name: KAFKA_AUTO_OFFSET_RESET
+          value: "latest"
+        - name: KAFKA_ENABLE_AUTO_COMMIT
+          value: "true"
+        
+        # Market Data API Keys
+        - name: PJM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: pjm-api-key
+              optional: true
+        - name: CAISO_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: caiso-api-key
+              optional: true
+        - name: ERCOT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: ercot-api-key
+              optional: true
+        
+        # Processing Configuration
+        - name: MARKET_ZONES
+          value: "PJM,CAISO,ERCOT"
+        - name: DATA_REFRESH_INTERVAL
+          value: "30"  # seconds
+        - name: HISTORICAL_BACKFILL_ENABLED
+          value: "true"
+        - name: DATA_VALIDATION_ENABLED
+          value: "true"
+        - name: BULK_INSERT_BATCH_SIZE
+          value: "1000"
+        
+        # Monitoring
+        - name: PROMETHEUS_METRICS
+          value: "true"
+        - name: MARKET_DATA_METRICS_ENABLED
+          value: "true"
+        
+        # Resource Limits
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: market-data-cache
+          mountPath: /app/cache
+        - name: market-data-logs
+          mountPath: /app/logs
+      volumes:
+      - name: market-data-cache
+        emptyDir:
+          sizeLimit: "1Gi"
+      - name: market-data-logs
+        emptyDir:
+          sizeLimit: "500Mi"
+
+---
+# Service for Market Data Integration
+apiVersion: v1
+kind: Service
+metadata:
+  name: optibid-market-data-service
+  namespace: optibid
+  labels:
+    app: optibid-market-data
+    version: v1.0.0
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8003
+    targetPort: 8003
+    protocol: TCP
+  - name: health
+    port: 8004
+    targetPort: 8004
+    protocol: TCP
+  selector:
+    app: optibid-market-data
+
+---
+# Horizontal Pod Autoscaler for Market Data Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: optibid-market-data-hpa
+  namespace: optibid
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: optibid-market-data
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+
+---
+# Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: optibid-market-data-pdb
+  namespace: optibid
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: optibid-market-data
+
+---
+# Network Policy for Market Data Service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: optibid-market-data-netpol
+  namespace: optibid
+spec:
+  podSelector:
+    matchLabels:
+      app: optibid-market-data
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: optibid-backend
+    ports:
+    - protocol: TCP
+      port: 8003
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: kafka-cluster
+    ports:
+    - protocol: TCP
+      port: 9092
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to: []  # Allow external API calls for market data
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

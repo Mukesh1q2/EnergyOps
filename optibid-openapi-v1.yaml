@@ -1,0 +1,2475 @@
+openapi: 3.0.3
+info:
+  title: OptiBid Energy API v1
+  description: |
+    Enterprise-grade energy bidding and market analytics platform API.
+    
+    This API provides comprehensive access to OptiBid Energy's platform capabilities including:
+    - User authentication and organization management
+    - Data upload and processing
+    - Real-time streaming and analytics
+    - Machine learning forecasting and optimization
+    - Dashboard creation and sharing
+    - Billing and subscription management
+    
+    ## Authentication
+    
+    All endpoints (except public ones) require authentication using JWT Bearer tokens.
+    Obtain tokens via `/auth/login` or SSO endpoints.
+    
+    ## Rate Limits
+    
+    - Free tier: 1000 requests/hour
+    - Starter: 5000 requests/hour  
+    - Professional: 25000 requests/hour
+    - Enterprise: 100000 requests/hour
+    
+    ## Error Handling
+    
+    All errors follow RFC 7807 problem+json format with standard HTTP status codes.
+    
+    ## SDKs
+    
+    - Python: `pip install optibid-python`
+    - JavaScript: `npm install optibid-js`
+    - Go: `go get github.com/optibid/optibid-go`
+    
+  version: 1.0.0
+  contact:
+    name: OptiBid API Support
+    email: api-support@optibid.energy
+    url: https://optibid.energy/support
+  license:
+    name: Proprietary
+    url: https://optibid.energy/terms
+
+servers:
+  - url: https://api.optibid.energy/v1
+    description: Production server
+  - url: https://staging-api.optibid.energy/v1
+    description: Staging server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "validation_error"
+        title:
+          type: string
+          example: "Validation failed"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "The request contains invalid parameters"
+        instance:
+          type: string
+          example: "/api/v1/datasets/invalid-id"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Email is required"
+              code:
+                type: string
+                example: "REQUIRED"
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "Green Energy Solutions Inc."
+        slug:
+          type: string
+          example: "green-energy-solutions"
+        region:
+          type: string
+          enum: [US, EU, APAC, IN, OTHER]
+          example: "IN"
+        industry:
+          type: string
+          example: "Renewable Energy"
+        subscription_plan:
+          type: string
+          enum: [free, starter, professional, enterprise]
+          example: "professional"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        email:
+          type: string
+          format: email
+          example: "user@company.com"
+        name:
+          type: string
+          example: "John Doe"
+        role:
+          type: string
+          enum: [super_admin, org_admin, analyst, trader, viewer, auditor]
+          example: "analyst"
+        organization_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        mfa_enabled:
+          type: boolean
+          example: true
+        last_login:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    Dataset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        name:
+          type: string
+          example: "Solar Generation Data Q3 2025"
+        description:
+          type: string
+          example: "Hourly solar generation data from 50MW facility"
+        file_format:
+          type: string
+          enum: [csv, excel, json, parquet]
+          example: "csv"
+        schema:
+          type: object
+          properties:
+            columns:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: "timestamp"
+                  type:
+                    type: string
+                    enum: [string, number, boolean, datetime]
+                    example: "datetime"
+                  nullable:
+                    type: boolean
+                    example: false
+        row_count:
+          type: integer
+          example: 8760
+        file_size_mb:
+          type: number
+          example: 15.2
+        status:
+          type: string
+          enum: [uploading, processing, ready, error]
+          example: "ready"
+        created_by:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    Dashboard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440003"
+        name:
+          type: string
+          example: "Market Overview Dashboard"
+        description:
+          type: string
+          example: "Real-time market prices and trading volumes"
+        widgets:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+                example: "550e8400-e29b-41d4-a716-446655440004"
+              type:
+                type: string
+                enum: [timeseries, kpi, map, table, chart, gauge]
+                example: "timeseries"
+              position:
+                type: object
+                properties:
+                  x:
+                    type: integer
+                    example: 0
+                  y:
+                    type: integer
+                    example: 0
+                  w:
+                    type: integer
+                    example: 6
+                  h:
+                    type: integer
+                    example: 4
+              config:
+                type: object
+                additionalProperties: true
+        is_public:
+          type: boolean
+          example: false
+        created_by:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    ForecastRequest:
+      type: object
+      required:
+        - dataset_id
+        - horizon_hours
+        - model
+      properties:
+        dataset_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        target_column:
+          type: string
+          example: "generation_mw"
+        timestamp_column:
+          type: string
+          example: "timestamp"
+        horizon_hours:
+          type: integer
+          minimum: 1
+          maximum: 8760
+          example: 168
+        model:
+          type: string
+          enum: [prophet, tft, nbeats, deepar]
+          example: "prophet"
+        frequency:
+          type: string
+          example: "1H"
+        covariates:
+          type: array
+          items:
+            type: string
+          example: ["temperature", "irradiance", "wind_speed"]
+
+    ForecastResponse:
+      type: object
+      properties:
+        forecast_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440005"
+        predictions:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+                example: "2025-11-18T00:00:00Z"
+              value:
+                type: number
+                example: 45.2
+              lower_bound:
+                type: number
+                example: 42.1
+              upper_bound:
+                type: number
+                example: 48.3
+        model_metrics:
+          type: object
+          properties:
+            mape:
+              type: number
+              example: 0.045
+            rmse:
+              type: number
+              example: 2.3
+            mae:
+              type: number
+              example: 1.8
+        model_info:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Prophet"
+            version:
+              type: string
+              example: "1.1.5"
+            training_time_seconds:
+              type: number
+              example: 45.2
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    OptimizeRequest:
+      type: object
+      required:
+        - forecast_id
+        - constraints
+      properties:
+        forecast_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440005"
+        objective:
+          type: string
+          enum: [maximize_revenue, minimize_cost, balance_grid, optimize_storage]
+          example: "maximize_revenue"
+        constraints:
+          type: object
+          properties:
+            max_bid_mw:
+              type: number
+              example: 50.0
+            min_bid_mw:
+              type: number
+              example: 5.0
+            storage_capacity_mwh:
+              type: number
+              example: 100.0
+            storage_soc_min:
+              type: number
+              example: 0.2
+            storage_soc_max:
+              type: number
+              example: 0.9
+            ramp_rate_mw_per_hour:
+              type: number
+              example: 10.0
+
+    OptimizeResponse:
+      type: object
+      properties:
+        optimization_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440006"
+        optimal_bids:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+                example: "2025-11-18T00:00:00Z"
+              power_mw:
+                type: number
+                example: 42.5
+              price:
+                type: number
+                example: 55.30
+              storage_action:
+                type: string
+                enum: [charge, discharge, idle]
+                example: "discharge"
+        objective_value:
+          type: number
+          example: 125430.50
+        solver_info:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "OPTIMAL"
+            solve_time_seconds:
+              type: number
+              example: 3.2
+            iterations:
+              type: integer
+              example: 125
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    ShareLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440007"
+        dashboard_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440003"
+        url:
+          type: string
+          format: uri
+          example: "https://optibid.energy/share/abc123-def456"
+        token:
+          type: string
+          example: "abc123-def456-ghi789"
+        expires_at:
+          type: string
+          format: date-time
+          example: "2025-12-17T23:07:08Z"
+        password_protected:
+          type: boolean
+          example: true
+        allowed_domains:
+          type: array
+          items:
+            type: string
+          example: ["partner1.com", "client2.org"]
+        created_by:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-17T23:07:08Z"
+
+    Theme:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "light-blue"
+        name:
+          type: string
+          example: "Light / Blue"
+        variables:
+          type: object
+          properties:
+            --color-bg:
+              type: string
+              example: "#f5f9ff"
+            --color-surface:
+              type: string
+              example: "#ffffff"
+            --color-primary:
+              type: string
+              example: "#0b6cff"
+            --color-accent:
+              type: string
+              example: "#00a3ff"
+            --color-text-primary:
+              type: string
+              example: "#0f1724"
+            --color-text-secondary:
+              type: string
+              example: "#334155"
+
+    UsageStats:
+      type: object
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+              example: "2025-11-01T00:00:00Z"
+            end:
+              type: string
+              format: date-time
+              example: "2025-11-30T23:59:59Z"
+        metrics:
+          type: object
+          properties:
+            api_calls:
+              type: integer
+              example: 15420
+            storage_gb:
+              type: number
+              example: 45.7
+            compute_hours:
+              type: number
+              example: 12.5
+            forecast_requests:
+              type: integer
+              example: 145
+            optimization_requests:
+              type: integer
+              example: 23
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "unauthorized"
+            title: "Authentication required"
+            status: 401
+            detail: "Bearer token is missing or invalid"
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "forbidden"
+            title: "Insufficient permissions"
+            status: 403
+            detail: "User does not have permission to access this resource"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "not_found"
+            title: "Resource not found"
+            status: 404
+            detail: "The requested resource does not exist"
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "validation_error"
+            title: "Validation failed"
+            status: 400
+            detail: "The request contains invalid parameters"
+            errors:
+              - field: "email"
+                message: "Email is required"
+                code: "REQUIRED"
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "rate_limit_exceeded"
+            title: "Rate limit exceeded"
+            status: 429
+            detail: "API rate limit exceeded for this organization"
+            retry_after: 3600
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Organizations
+    description: Organization and user management
+  - name: Datasets
+    description: Data upload and management
+  - name: Forecasting
+    description: Time series forecasting and predictions
+  - name: Optimization
+    description: Bid optimization and scheduling
+  - name: Dashboards
+    description: Dashboard creation and management
+  - name: Sharing
+    description: Dashboard sharing and collaboration
+  - name: Themes
+    description: Theme and branding management
+  - name: Billing
+    description: Usage tracking and billing
+  - name: System
+    description: System status and health
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: |
+        Authenticate user and return JWT access token.
+        
+        Supports multiple authentication methods:
+        - Email/password
+        - OAuth2/OIDC (with provider parameter)
+        - SAML assertion (with assertion parameter)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@company.com"
+                password:
+                  type: string
+                  format: password
+                  example: "SecurePassword123!"
+                provider:
+                  type: string
+                  enum: [local, google, microsoft, okta, auth0]
+                  example: "local"
+                mfa_code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refresh_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  token_type:
+                    type: string
+                    example: "Bearer"
+                  expires_in:
+                    type: integer
+                    example: 900
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: |
+        Refresh access token using valid refresh token.
+        Refresh tokens expire after 7 days.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  expires_in:
+                    type: integer
+                    example: 900
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/sso/saml:
+    get:
+      tags:
+        - Authentication
+      summary: Initiate SAML SSO
+      description: |
+        Redirect to organization's SAML Identity Provider for single sign-on.
+        
+        **Parameters:**
+        - `redirect_url`: Optional URL to redirect after successful authentication
+        - `relay_state`: Optional state parameter for the IdP
+      parameters:
+        - name: redirect_url
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+        - name: relay_state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to SAML IdP
+          headers:
+            Location:
+              description: SAML IdP authentication URL
+              schema:
+                type: string
+                format: uri
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: |
+        Invalidate current session and refresh token.
+        
+        **Note:** This endpoint requires valid access token in Authorization header.
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Successfully logged out"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Organization Endpoints
+  /orgs:
+    get:
+      tags:
+        - Organizations
+      summary: List organizations
+      description: |
+        Get list of organizations accessible to current user.
+        
+        **Role Requirements:**
+        - Super Admin: All organizations
+        - Org Admin: Own organization only
+        - Other roles: Own organization only
+      responses:
+        '200':
+          description: Organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+                  total:
+                    type: integer
+                    example: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Organizations
+      summary: Create organization
+      description: |
+        Create a new organization.
+        
+        **Role Requirements:** Super Admin or Org Admin
+        
+        **Limits:** Maximum 1 organization per Super Admin request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - region
+                - industry
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                  example: "New Energy Corp"
+                region:
+                  type: string
+                  enum: [US, EU, APAC, IN, OTHER]
+                  example: "IN"
+                industry:
+                  type: string
+                  example: "Solar Energy"
+                subscription_plan:
+                  type: string
+                  enum: [free, starter, professional, enterprise]
+                  default: free
+                  example: "professional"
+      responses:
+        '201':
+          description: Organization created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /orgs/{org_id}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organization details
+      description: |
+        Get detailed information about a specific organization.
+        
+        **Role Requirements:** Org Admin or higher
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Organization details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    put:
+      tags:
+        - Organizations
+      summary: Update organization
+      description: |
+        Update organization details.
+        
+        **Role Requirements:** Org Admin or Super Admin
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                industry:
+                  type: string
+                subscription_plan:
+                  type: string
+                  enum: [free, starter, professional, enterprise]
+      responses:
+        '200':
+          description: Organization updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # User Management Endpoints
+  /orgs/{org_id}/users:
+    get:
+      tags:
+        - Organizations
+      summary: List organization users
+      description: |
+        Get list of users in an organization.
+        
+        **Role Requirements:** Org Admin or Super Admin
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [super_admin, org_admin, analyst, trader, viewer, auditor]
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Organizations
+      summary: Invite user
+      description: |
+        Invite a new user to join the organization.
+        
+        **Role Requirements:** Org Admin or Super Admin
+        
+        **Email Features:**
+        - Sends invitation email
+        - Creates temporary account
+        - Sets password on first login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "newuser@company.com"
+                name:
+                  type: string
+                  example: "Jane Smith"
+                role:
+                  type: string
+                  enum: [org_admin, analyst, trader, viewer, auditor]
+                  example: "analyst"
+      responses:
+        '201':
+          description: User invitation sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invitation sent successfully"
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440001"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Dataset Endpoints
+  /datasets:
+    get:
+      tags:
+        - Datasets
+      summary: List datasets
+      description: |
+        Get list of datasets accessible to current user.
+        
+        **Role Requirements:** All authenticated users
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [uploading, processing, ready, error]
+        - name: file_format
+          in: query
+          schema:
+            type: string
+            enum: [csv, excel, json, parquet]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Datasets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datasets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dataset'
+                  total:
+                    type: integer
+                    example: 25
+                  limit:
+                    type: integer
+                    example: 20
+                  offset:
+                    type: integer
+                    example: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Datasets
+      summary: Upload dataset
+      description: |
+        Upload a new dataset file for processing.
+        
+        **Supported Formats:**
+        - CSV: UTF-8 encoded, comma-separated
+        - Excel: .xlsx, .xls files
+        - JSON: Structured JSON arrays
+        - Parquet: Columnar storage format
+        
+        **File Limits:**
+        - Maximum file size: 500MB
+        - Maximum rows: 10 million
+        - Concurrent uploads: 3 per organization
+        
+        **Processing:**
+        - Automatic schema detection
+        - Data validation and cleaning
+        - Indexing for fast queries
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Dataset file to upload
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "Q3 Solar Generation Data"
+                description:
+                  type: string
+                  maxLength: 1000
+                  example: "Hourly solar generation data from 50MW facility in Gujarat"
+                overwrite:
+                  type: boolean
+                  default: false
+                  description: Whether to overwrite existing dataset with same name
+      responses:
+        '201':
+          description: Dataset upload started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "file_too_large"
+                title: "File size exceeded"
+                status: 413
+                detail: "File size exceeds maximum allowed limit of 500MB"
+
+  /datasets/{dataset_id}:
+    get:
+      tags:
+        - Datasets
+      summary: Get dataset details
+      description: |
+        Get detailed information about a specific dataset including schema and statistics.
+        
+        **Role Requirements:** All authenticated users
+      parameters:
+        - name: dataset_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dataset details retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Dataset'
+                  - type: object
+                    properties:
+                      statistics:
+                        type: object
+                        properties:
+                          completeness:
+                            type: object
+                            additionalProperties:
+                              type: number
+                          null_counts:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                          data_range:
+                            type: object
+                            properties:
+                              start:
+                                type: string
+                                format: date-time
+                              end:
+                                type: string
+                                format: date-time
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags:
+        - Datasets
+      summary: Delete dataset
+      description: |
+        Permanently delete a dataset and all associated data.
+        
+        **Warning:** This action cannot be undone.
+        
+        **Role Requirements:** Dataset owner or Org Admin
+      parameters:
+        - name: dataset_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Dataset deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Forecasting Endpoints
+  /forecast:
+    post:
+      tags:
+        - Forecasting
+      summary: Create forecast
+      description: |
+        Create a time series forecast using selected model and parameters.
+        
+        **Models:**
+        - Prophet: Good for daily/weekly seasonality
+        - TFT (Temporal Fusion Transformer): Deep learning for complex patterns
+        - N-BEATS: Neural network for univariate forecasting
+        - DeepAR: Probabilistic forecasting for related series
+        
+        **Processing:**
+        - Synchronous for horizons ≤ 48 hours
+        - Asynchronous for longer horizons or complex models
+        - Progress tracking via forecast_id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForecastRequest'
+      responses:
+        '201':
+          description: Forecast creation started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  forecast_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440005"
+                  status:
+                    type: string
+                    enum: [pending, processing, completed, failed]
+                    example: "pending"
+                  estimated_completion:
+                    type: string
+                    format: date-time
+                    example: "2025-11-17T23:12:08Z"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Forecast configuration invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "invalid_forecast_config"
+                title: "Invalid forecast configuration"
+                status: 422
+                detail: "Target column 'generation_mw' not found in dataset schema"
+
+  /forecast/{forecast_id}:
+    get:
+      tags:
+        - Forecasting
+      summary: Get forecast results
+      description: |
+        Retrieve forecast results by ID.
+        
+        **Status Values:**
+        - pending: Forecast queued for processing
+        - processing: Model training in progress
+        - completed: Forecast ready with results
+        - failed: Processing failed, check error details
+      parameters:
+        - name: forecast_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Forecast results retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ForecastResponse'
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [pending, processing, completed, failed]
+                        example: "completed"
+                      progress:
+                        type: number
+                        minimum: 0
+                        maximum: 100
+                        example: 100
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /forecast/{forecast_id}/explain:
+    get:
+      tags:
+        - Forecasting
+      summary: Get forecast explanations
+      description: |
+        Get model explainability information for forecast.
+        
+        **Features:**
+        - Feature importance analysis
+        - SHAP values for individual predictions
+        - Model decision insights
+        - Anomaly detection in input data
+      parameters:
+        - name: forecast_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Forecast explanations retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  feature_importance:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        feature:
+                          type: string
+                          example: "temperature"
+                        importance:
+                          type: number
+                          example: 0.23
+                  shap_values:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        feature:
+                          type: string
+                        shap_value:
+                          type: number
+                        base_value:
+                          type: number
+                        prediction:
+                          type: number
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Optimization Endpoints
+  /optimize:
+    post:
+      tags:
+        - Optimization
+      summary: Create optimization
+      description: |
+        Create an optimization run using forecast data and constraints.
+        
+        **Objectives:**
+        - maximize_revenue: Optimize for maximum revenue generation
+        - minimize_cost: Minimize operational costs
+        - balance_grid: Grid stability and balance optimization
+        - optimize_storage: Battery storage optimization
+        
+        **Solvers:**
+        - OR-Tools: Open-source MILP solver
+        - Gurobi: Commercial solver (Enterprise tier)
+        
+        **Processing:**
+        - Synchronous for simple problems
+        - Asynchronous for complex optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizeRequest'
+      responses:
+        '201':
+          description: Optimization started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  optimization_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440006"
+                  status:
+                    type: string
+                    enum: [pending, processing, completed, failed]
+                    example: "pending"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Optimization constraints invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "invalid_constraints"
+                title: "Invalid optimization constraints"
+                status: 422
+                detail: "min_bid_mw (5.0) cannot exceed max_bid_mw (3.0)"
+
+  /optimize/{optimization_id}:
+    get:
+      tags:
+        - Optimization
+      summary: Get optimization results
+      description: |
+        Retrieve optimization results by ID.
+        
+        **Status Values:**
+        - pending: Optimization queued
+        - processing: Solver running
+        - completed: Optimal solution found
+        - failed: Solver failed, check error details
+        
+        **Results Include:**
+        - Optimal bid schedule
+        - Storage dispatch plan
+        - Objective value
+        - Solver statistics
+      parameters:
+        - name: optimization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Optimization results retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OptimizeResponse'
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [pending, processing, completed, failed]
+                        example: "completed"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Dashboard Endpoints
+  /dashboards:
+    get:
+      tags:
+        - Dashboards
+      summary: List dashboards
+      description: |
+        Get list of dashboards accessible to current user.
+        
+        **Filters:**
+        - Ownership: Show created, shared, or all
+        - Tags: Filter by dashboard tags
+        - Status: Show active, archived, or all
+      parameters:
+        - name: ownership
+          in: query
+          schema:
+            type: string
+            enum: [created, shared, all]
+            default: all
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Dashboards retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dashboards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dashboard'
+                  total:
+                    type: integer
+                    example: 15
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Dashboards
+      summary: Create dashboard
+      description: |
+        Create a new dashboard with optional template.
+        
+        **Templates:**
+        - market_overview: Real-time market data dashboard
+        - forecasting: Time series analysis and predictions
+        - optimization: Bid optimization results
+        - operations: Grid operations monitoring
+        - storage: Energy storage management
+        
+        **Features:**
+        - Drag-and-drop widget layout
+        - Real-time data streaming
+        - Multiple chart types
+        - Custom themes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "Market Overview Dashboard"
+                description:
+                  type: string
+                  maxLength: 1000
+                  example: "Real-time market prices and trading volumes"
+                template:
+                  type: string
+                  enum: [blank, market_overview, forecasting, optimization, operations, storage]
+                  default: blank
+                theme_id:
+                  type: string
+                  example: "light-blue"
+      responses:
+        '201':
+          description: Dashboard created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /dashboards/{dashboard_id}:
+    get:
+      tags:
+        - Dashboards
+      summary: Get dashboard details
+      description: |
+        Get complete dashboard configuration including widgets and settings.
+        
+        **Includes:**
+        - Dashboard metadata
+        - Widget configurations
+        - Data source connections
+        - Sharing settings
+        - Layout information
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dashboard details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - Dashboards
+      summary: Update dashboard
+      description: |
+        Update dashboard configuration, layout, or settings.
+        
+        **Updateable Properties:**
+        - Name and description
+        - Widget configuration
+        - Layout and positioning
+        - Theme and styling
+        - Data sources
+        
+        **Version Control:**
+        - Automatic versioning on save
+        - Rollback to previous versions
+        - Change history tracking
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 1000
+                widgets:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      type:
+                        type: string
+                        enum: [timeseries, kpi, map, table, chart, gauge]
+                      position:
+                        type: object
+                        properties:
+                          x:
+                            type: integer
+                          y:
+                            type: integer
+                          w:
+                            type: integer
+                          h:
+                            type: integer
+                      config:
+                        type: object
+                        additionalProperties: true
+      responses:
+        '200':
+          description: Dashboard updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      tags:
+        - Dashboards
+      summary: Delete dashboard
+      description: |
+        Permanently delete a dashboard.
+        
+        **Impact:**
+        - Removes dashboard and all widgets
+        - Deletes associated share links
+        - Archive references in audit logs
+        
+        **Protection:**
+        - Requires confirmation for deletion
+        - Prevents deletion if shared dashboards exist
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: confirm
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [yes, no]
+            default: no
+      responses:
+        '204':
+          description: Dashboard deleted successfully
+        '400':
+          description: Deletion confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "confirmation_required"
+                title: "Deletion confirmation required"
+                status: 400
+                detail: "Set confirm=yes to delete dashboard"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Sharing Endpoints
+  /dashboards/{dashboard_id}/share:
+    post:
+      tags:
+        - Sharing
+      summary: Create share link
+      description: |
+        Create a secure sharing link for a dashboard.
+        
+        **Security Features:**
+        - JWT token authentication
+        - Optional password protection
+        - Expiry date enforcement
+        - Domain restriction
+        - Usage tracking
+        
+        **Access Control:**
+        - Read-only access by default
+        - Configurable permissions
+        - Audit trail of access
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - expires_at
+              properties:
+                expires_at:
+                  type: string
+                  format: date-time
+                  example: "2025-12-17T23:07:08Z"
+                password:
+                  type: string
+                  minLength: 8
+                  description: Optional password protection
+                allowed_domains:
+                  type: array
+                  items:
+                    type: string
+                  example: ["partner1.com", "client2.org"]
+                  description: Restrict access to specific domains
+                max_access_count:
+                  type: integer
+                  minimum: 1
+                  description: Maximum number of accesses before link expires
+      responses:
+        '201':
+          description: Share link created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareLink'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /shares:
+    get:
+      tags:
+        - Sharing
+      summary: List share links
+      description: |
+        Get list of active share links created by current user.
+        
+        **Filters:**
+        - Dashboard: Filter by specific dashboard
+        - Status: Active, expired, or all
+        - Access count: Filter by usage
+      parameters:
+        - name: dashboard_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, expired, all]
+            default: active
+      responses:
+        '200':
+          description: Share links retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_links:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShareLink'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /shares/{share_id}:
+    delete:
+      tags:
+        - Sharing
+      summary: Revoke share link
+      description: |
+        Immediately revoke a share link, making it inaccessible.
+        
+        **Impact:**
+        - Link becomes invalid immediately
+        - Existing users lose access
+        - Access audit trail preserved
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Share link revoked successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Theme Endpoints
+  /themes:
+    get:
+      tags:
+        - Themes
+      summary: List available themes
+      description: |
+        Get list of themes available to current user's organization.
+        
+        **Includes:**
+        - System themes (light, dark, hybrid, light/blue)
+        - Organization custom themes
+        - Theme variables and preview
+        - Accessibility compliance status
+      responses:
+        '200':
+          description: Themes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  themes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Theme'
+                  organization_default:
+                    type: string
+                    example: "light-blue"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orgs/{org_id}/theme:
+    put:
+      tags:
+        - Themes
+      summary: Set organization theme
+      description: |
+        Set the default theme for an organization.
+        
+        **Role Requirements:** Org Admin or Super Admin
+        
+        **Effect:**
+        - All users see default theme on login
+        - Users can still override with personal preference
+        - Requires user session refresh to apply
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - theme_id
+              properties:
+                theme_id:
+                  type: string
+                  example: "light-blue"
+      responses:
+        '200':
+          description: Organization theme updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Theme updated successfully"
+                  theme_id:
+                    type: string
+                    example: "light-blue"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Billing Endpoints
+  /billing/usage:
+    get:
+      tags:
+        - Billing
+      summary: Get usage statistics
+      description: |
+        Get current usage statistics for the organization.
+        
+        **Usage Metrics:**
+        - API calls and rate limiting
+        - Storage consumption
+        - Compute hours (ML training, optimization)
+        - Forecast and optimization requests
+        
+        **Periods:**
+        - Current month (default)
+        - Specific date range
+        - Historical comparison
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [current_month, last_month, custom]
+            default: current_month
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+            description: Required when period=custom
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+            description: Required when period=custom
+      responses:
+        '200':
+          description: Usage statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /billing/invoices:
+    get:
+      tags:
+        - Billing
+      summary: List invoices
+      description: |
+        Get list of invoices for the organization.
+        
+        **Invoice Details:**
+        - Invoice number and date
+        - Usage breakdown
+        - Amount and currency
+        - Payment status
+        - PDF download links
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, paid, overdue, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Invoices retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        invoice_number:
+                          type: string
+                          example: "INV-2025-001"
+                        amount:
+                          type: number
+                          example: 499.00
+                        currency:
+                          type: string
+                          example: "USD"
+                        status:
+                          type: string
+                          enum: [draft, sent, paid, overdue, cancelled]
+                        due_date:
+                          type: string
+                          format: date
+                        created_at:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /billing/subscription:
+    get:
+      tags:
+        - Billing
+      summary: Get subscription details
+      description: |
+        Get current subscription plan and billing information.
+        
+        **Includes:**
+        - Current plan and features
+        - Billing cycle and renewal
+        - Usage limits and quotas
+        - Payment method
+        - Next invoice amount
+      responses:
+        '200':
+          description: Subscription details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: string
+                    enum: [free, starter, professional, enterprise]
+                    example: "professional"
+                  status:
+                    type: string
+                    enum: [active, past_due, cancelled, trialing]
+                    example: "active"
+                  billing_cycle:
+                    type: string
+                    enum: [monthly, annual]
+                    example: "monthly"
+                  next_renewal:
+                    type: string
+                    format: date-time
+                  features:
+                    type: array
+                    items:
+                      type: string
+                      example: "real_time_streaming"
+                  limits:
+                    type: object
+                    properties:
+                      api_calls_per_hour:
+                        type: integer
+                        example: 25000
+                      storage_gb:
+                        type: number
+                        example: 100.0
+                      users:
+                        type: integer
+                        example: 25
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # System Endpoints
+  /system/status:
+    get:
+      tags:
+        - System
+      summary: System health status
+      description: |
+        Get current system health and status information.
+        
+        **Status Information:**
+        - Overall system status
+        - Component health (database, cache, ML services)
+        - API performance metrics
+        - Feature availability
+      responses:
+        '200':
+          description: System status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, outage]
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-11-17T23:07:08Z"
+                  components:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [healthy, degraded, outage]
+                        example: "healthy"
+                      cache:
+                        type: string
+                        enum: [healthy, degraded, outage]
+                        example: "healthy"
+                      ml_services:
+                        type: string
+                        enum: [healthy, degraded, outage]
+                        example: "healthy"
+                      streaming:
+                        type: string
+                        enum: [healthy, degraded, outage]
+                        example: "healthy"
+                  metrics:
+                    type: object
+                    properties:
+                      response_time_ms:
+                        type: object
+                        properties:
+                          p50:
+                            type: number
+                            example: 145
+                          p95:
+                            type: number
+                            example: 423
+                          p99:
+                            type: number
+                            example: 890
+                      uptime_percentage:
+                        type: number
+                        example: 99.97
+                      active_users:
+                        type: integer
+                        example: 1247
+
+  /system/metrics:
+    get:
+      tags:
+        - System
+      summary: System metrics
+      description: |
+        Get detailed system performance metrics.
+        
+        **Metrics Available:**
+        - Request volumes and response times
+        - Error rates by endpoint
+        - Resource utilization
+        - ML model performance
+        - Database performance
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1h, 24h, 7d, 30d]
+            default: 24h
+      responses:
+        '200':
+          description: System metrics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                    example: "24h"
+                  metrics:
+                    type: object
+                    properties:
+                      requests:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 156420
+                          successful:
+                            type: integer
+                            example: 154287
+                          failed:
+                            type: integer
+                            example: 2133
+                      response_times:
+                        type: object
+                        properties:
+                          avg:
+                            type: number
+                            example: 234
+                          p95:
+                            type: number
+                            example: 567
+                          p99:
+                            type: number
+                            example: 1203
+                      error_rate:
+                        type: number
+                        example: 0.0136
+                      throughput:
+                        type: number
+                        example: 1.81
+
+# WebSocket endpoint for real-time streaming
+ws://api.optibid.energy/v1/stream:
+  get:
+    tags:
+      - Streaming
+    summary: WebSocket streaming connection
+    description: |
+      Establish WebSocket connection for real-time data streaming.
+      
+      **Connection Parameters:**
+      - Query parameters for subscription filters
+      - Authentication via Bearer token in headers
+      - Automatic reconnection handling
+      
+      **Message Format:**
+      ```json
+      {
+        "type": "data",
+        "topic": "timeseries.prices.gujarat",
+        "timestamp": "2025-11-17T23:07:08Z",
+        "data": {
+          "timestamp": "2025-11-17T23:07:00Z",
+          "price": 55.30,
+          "volume": 125.4
+        }
+      }
+      ```
+      
+      **Available Topics:**
+      - `timeseries.{metric}.{region}`: Real-time time series data
+      - `alerts.{type}`: System and business alerts
+      - `forecasts.{id}`: Forecast updates
+      - `optimizations.{id}`: Optimization progress
+    parameters:
+      - name: topics
+        in: query
+        required: true
+        description: Comma-separated list of topics to subscribe to
+        schema:
+          type: string
+          example: "timeseries.prices.gujarat,alerts.system"
+      - name: heartbeat
+        in: query
+        description: Heartbeat interval in seconds (default: 30)
+        schema:
+          type: integer
+          minimum: 10
+          maximum: 300
+          default: 30
+    responses:
+      '101':
+        description: WebSocket connection established
+      '401':
+        description: Authentication required
+      '428':
+        description: Missing required parameters
+
+# SDK Examples
+
+# Python SDK Example
+x-code-samples:
+  - language: python
+    label: Python SDK
+    source: |
+      from optibid import OptiBidClient
+      
+      client = OptiBidClient(api_key="your-api-key")
+      
+      # Create a forecast
+      forecast = client.forecast.create(
+          dataset_id="550e8400-e29b-41d4-a716-446655440002",
+          model="prophet",
+          horizon_hours=168
+      )
+      
+      # Get forecast results
+      results = client.forecast.get(forecast.forecast_id)
+      print(f"Forecast completed: {len(results.predictions)} predictions")
+
+# JavaScript SDK Example
+  - language: javascript
+    label: JavaScript SDK
+    source: |
+      import { OptiBidClient } from '@optibid/js-sdk';
+      
+      const client = new OptiBidClient({
+        apiKey: 'your-api-key',
+        baseURL: 'https://api.optibid.energy/v1'
+      });
+      
+      // Create optimization
+      const optimization = await client.optimization.create({
+        forecast_id: '550e8400-e29b-41d4-a716-446655440005',
+        objective: 'maximize_revenue',
+        constraints: {
+          max_bid_mw: 50.0,
+          min_bid_mw: 5.0
+        }
+      });
+      
+      console.log('Optimization created:', optimization.optimization_id);
+
+# cURL Examples
+  - language: bash
+    label: cURL Examples
+    source: |
+      # Login and get token
+      curl -X POST https://api.optibid.energy/v1/auth/login \\
+        -H "Content-Type: application/json" \\
+        -d '{
+          "email": "user@company.com",
+          "password": "SecurePassword123!"
+        }'
+      
+      # Create forecast
+      curl -X POST https://api.optibid.energy/v1/forecast \\
+        -H "Authorization: Bearer your-jwt-token" \\
+        -H "Content-Type: application/json" \\
+        -d '{
+          "dataset_id": "550e8400-e29b-41d4-a716-446655440002",
+          "model": "prophet",
+          "horizon_hours": 168
+        }'
+      
+      # Get dashboard
+      curl -X GET https://api.optibid.energy/v1/dashboards/{dashboard_id} \\
+        -H "Authorization: Bearer your-jwt-token"

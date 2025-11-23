@@ -1,0 +1,347 @@
+# Prometheus Application Performance Alerting Rules
+# OptiBid Energy Platform
+
+groups:
+  - name: application_performance_alerts
+    interval: 30s
+    rules:
+      # API Response Time
+      - alert: HighAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          component: api
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile API response time is above 1 second. Performance degradation detected."
+          runbook_url: "https://docs.optibid.io/runbooks/performance/high-response-time"
+
+      - alert: CriticalAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          category: performance
+          component: api
+        annotations:
+          summary: "CRITICAL: Very high API response time"
+          description: "95th percentile API response time is above 5 seconds. Severe performance issues."
+          runbook_url: "https://docs.optibid.io/runbooks/performance/critical-response-time"
+
+      # Error Rate
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m]) / 
+            rate(http_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: reliability
+          component: api
+        annotations:
+          summary: "High error rate"
+          description: "More than 5% of requests are returning 5xx errors. Service degradation."
+          runbook_url: "https://docs.optibid.io/runbooks/reliability/high-error-rate"
+
+      - alert: CriticalErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m]) / 
+            rate(http_requests_total[5m])
+          ) > 0.25
+        for: 2m
+        labels:
+          severity: critical
+          category: reliability
+          component: api
+        annotations:
+          summary: "CRITICAL: Very high error rate"
+          description: "More than 25% of requests are returning 5xx errors. Service outage likely."
+          runbook_url: "https://docs.optibid.io/runbooks/reliability/critical-error-rate"
+
+      # Request Rate
+      - alert: UnusualRequestRate
+        expr: |
+          rate(http_requests_total[5m]) > 
+          avg_over_time(http_requests_total[1h]) * 3
+        for: 10m
+        labels:
+          severity: warning
+          category: traffic
+          component: api
+        annotations:
+          summary: "Unusual request rate"
+          description: "Request rate is 3x higher than normal. Possible DDoS attack or traffic spike."
+          runbook_url: "https://docs.optibid.io/runbooks/traffic/unusual-rate"
+
+      - alert: NoTraffic
+        expr: rate(http_requests_total[10m]) == 0
+        for: 15m
+        labels:
+          severity: critical
+          category: traffic
+          component: api
+        annotations:
+          summary: "CRITICAL: No API traffic"
+          description: "No API requests in the last 15 minutes. Service may be down or unreachable."
+          runbook_url: "https://docs.optibid.io/runbooks/traffic/no-traffic"
+
+  - name: database_performance_alerts
+    interval: 30s
+    rules:
+      # Database Connection Pool
+      - alert: DatabaseConnectionPoolExhausted
+        expr: database_connection_pool_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: database
+          component: connection_pool
+        annotations:
+          summary: "CRITICAL: Database connection pool exhausted"
+          description: "No available database connections. Requests will fail or timeout."
+          runbook_url: "https://docs.optibid.io/runbooks/database/pool-exhausted"
+
+      - alert: DatabaseConnectionPoolLow
+        expr: |
+          (
+            database_connection_pool_available / 
+            database_connection_pool_total
+          ) < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          component: connection_pool
+        annotations:
+          summary: "Database connection pool running low"
+          description: "Less than 20% of database connections available. May need to increase pool size."
+          runbook_url: "https://docs.optibid.io/runbooks/database/pool-low"
+
+      # Database Query Performance
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, rate(database_query_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          component: query_performance
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query time is above 1 second. Database performance degradation."
+          runbook_url: "https://docs.optibid.io/runbooks/database/slow-queries"
+
+      - alert: DatabaseDeadlocks
+        expr: rate(database_deadlocks_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          component: deadlocks
+        annotations:
+          summary: "Database deadlocks detected"
+          description: "More than 1 deadlock per second. Review transaction logic and locking."
+          runbook_url: "https://docs.optibid.io/runbooks/database/deadlocks"
+
+      # Database Availability
+      - alert: DatabaseDown
+        expr: database_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+          component: availability
+        annotations:
+          summary: "CRITICAL: Database is down"
+          description: "Cannot connect to database. Service outage."
+          runbook_url: "https://docs.optibid.io/runbooks/database/database-down"
+
+      - alert: DatabaseConnectionFailures
+        expr: rate(database_connection_failures_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          component: connectivity
+        annotations:
+          summary: "High database connection failure rate"
+          description: "More than 5 connection failures per second. Check database health."
+          runbook_url: "https://docs.optibid.io/runbooks/database/connection-failures"
+
+  - name: cache_performance_alerts
+    interval: 30s
+    rules:
+      # Redis Cache
+      - alert: RedisCacheDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: cache
+          component: redis
+        annotations:
+          summary: "CRITICAL: Redis cache is down"
+          description: "Cannot connect to Redis. Caching and session management affected."
+          runbook_url: "https://docs.optibid.io/runbooks/cache/redis-down"
+
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            rate(cache_hits_total[5m]) / 
+            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: cache
+          component: performance
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is below 50%. Review caching strategy or increase cache size."
+          runbook_url: "https://docs.optibid.io/runbooks/cache/low-hit-rate"
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          category: cache
+          component: memory
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis is using more than 90% of available memory. May need to increase memory or evict keys."
+          runbook_url: "https://docs.optibid.io/runbooks/cache/memory-high"
+
+      - alert: RedisConnectionsHigh
+        expr: redis_connected_clients > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: cache
+          component: connections
+        annotations:
+          summary: "High number of Redis connections"
+          description: "More than 1000 clients connected to Redis. Check for connection leaks."
+          runbook_url: "https://docs.optibid.io/runbooks/cache/connections-high"
+
+  - name: websocket_alerts
+    interval: 30s
+    rules:
+      # WebSocket Connections
+      - alert: HighWebSocketConnections
+        expr: websocket_connections_active > 10000
+        for: 10m
+        labels:
+          severity: warning
+          category: websocket
+          component: connections
+        annotations:
+          summary: "High number of WebSocket connections"
+          description: "More than 10,000 active WebSocket connections. Check capacity."
+          runbook_url: "https://docs.optibid.io/runbooks/websocket/high-connections"
+
+      - alert: WebSocketConnectionFailures
+        expr: rate(websocket_connection_failures_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: websocket
+          component: connectivity
+        annotations:
+          summary: "High WebSocket connection failure rate"
+          description: "More than 10 WebSocket connection failures per second. Check service health."
+          runbook_url: "https://docs.optibid.io/runbooks/websocket/connection-failures"
+
+      - alert: WebSocketMessageBacklog
+        expr: websocket_message_queue_size > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: websocket
+          component: messaging
+        annotations:
+          summary: "WebSocket message backlog"
+          description: "More than 1000 messages queued. Messages may be delayed."
+          runbook_url: "https://docs.optibid.io/runbooks/websocket/message-backlog"
+
+  - name: resource_alerts
+    interval: 30s
+    rules:
+      # CPU Usage
+      - alert: HighCPUUsage
+        expr: process_cpu_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+          component: cpu
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for 10 minutes. May need to scale up."
+          runbook_url: "https://docs.optibid.io/runbooks/resources/high-cpu"
+
+      - alert: CriticalCPUUsage
+        expr: process_cpu_usage_percent > 95
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+          component: cpu
+        annotations:
+          summary: "CRITICAL: Very high CPU usage"
+          description: "CPU usage is above 95%. Performance severely degraded."
+          runbook_url: "https://docs.optibid.io/runbooks/resources/critical-cpu"
+
+      # Memory Usage
+      - alert: HighMemoryUsage
+        expr: process_memory_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+          component: memory
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 80% for 10 minutes. May need to scale up."
+          runbook_url: "https://docs.optibid.io/runbooks/resources/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: process_memory_usage_percent > 95
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+          component: memory
+        annotations:
+          summary: "CRITICAL: Very high memory usage"
+          description: "Memory usage is above 95%. Risk of OOM errors."
+          runbook_url: "https://docs.optibid.io/runbooks/resources/critical-memory"
+
+      # Disk Usage
+      - alert: HighDiskUsage
+        expr: disk_usage_percent > 80
+        for: 30m
+        labels:
+          severity: warning
+          category: resources
+          component: disk
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is above 80%. Consider cleanup or expansion."
+          runbook_url: "https://docs.optibid.io/runbooks/resources/high-disk"
+
+      - alert: CriticalDiskUsage
+        expr: disk_usage_percent > 95
+        for: 10m
+        labels:
+          severity: critical
+          category: resources
+          component: disk
+        annotations:
+          summary: "CRITICAL: Very high disk usage"
+          description: "Disk usage is above 95%. Immediate action required."
+          runbook_url: "https://docs.optibid.io/runbooks/resources/critical-disk"

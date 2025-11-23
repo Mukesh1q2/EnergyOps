@@ -1,0 +1,121 @@
+# Prometheus Configuration for OptiBid Energy Platform
+# Phase 4: Enterprise Security & Compliance
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # OptiBid Backend API
+  - job_name: 'optibid-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # PostgreSQL Database
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Redis Cache
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Apache Kafka
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # ClickHouse Analytics
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['clickhouse:8123']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # MLflow Model Tracking
+  - job_name: 'mlflow'
+    static_configs:
+      - targets: ['mlflow:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+
+  # Node Exporter (System Metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+# Security and Compliance Metrics
+rule_files:
+  - "security_rules.yml"
+  - "backup_rules.yml"
+  - "auth_rules.yml"
+
+# Security monitoring rules
+# These would be loaded from separate rule files in production
+
+# Sample security metrics to monitor:
+# - Failed authentication attempts
+# - MFA verification success/failure rates
+# - SSO authentication flows
+# - Backup job success/failure rates
+# - Session management metrics
+# - API rate limiting violations
+
+# Sample alert rules:
+# groups:
+#   - name: security_alerts
+#     rules:
+#       - alert: HighFailedLoginAttempts
+#         expr: rate(failed_login_attempts_total[5m]) > 10
+#         for: 2m
+#         labels:
+#           severity: warning
+#         annotations:
+#           summary: "High failed login attempts detected"
+#           description: "More than 10 failed login attempts in the last 5 minutes"
+#
+#       - alert: BackupJobFailed
+#         expr: backup_job_status == 0
+#         for: 5m
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "Backup job has failed"
+#           description: "Backup job has been failing for more than 5 minutes"
+#
+#       - alert: DatabaseConnectionFailure
+#         expr: database_connection_status == 0
+#         for: 1m
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "Database connection failure"
+#           description: "Database connection has been down for more than 1 minute"

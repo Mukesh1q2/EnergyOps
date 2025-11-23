@@ -1,0 +1,29 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: optibid-performance-optimization-pdb
+  namespace: optibid
+  labels:
+    app: optibid-performance-optimization
+    component: performance-optimization
+    phase: "8"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: optibid-performance-optimization
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: optibid-performance-optimization-pdb-high-availability
+  namespace: optibid
+  labels:
+    app: optibid-performance-optimization
+    component: performance-optimization-ha
+    phase: "8"
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: optibid-performance-optimization

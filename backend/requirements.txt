@@ -1,0 +1,186 @@
+# OptiBid Energy Platform Backend Dependencies
+
+# FastAPI and web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Database
+sqlalchemy[asyncio]==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Data validation & serialization
+pydantic==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# HTTP client & requests
+httpx==0.25.2
+requests==2.31.0
+
+# Caching & Real-time
+redis==5.0.1
+kafka-python==2.0.2
+
+# Data processing & analysis
+pandas==2.1.4
+numpy==1.25.2
+scipy==1.11.4
+
+# Machine learning
+scikit-learn==1.3.2
+lightgbm==4.1.0
+xgboost==2.0.3
+torch==2.1.1
+tensorflow==2.15.0
+
+# Time series forecasting
+prophet==1.1.5
+statsmodels==0.14.0
+
+# Data visualization
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+
+# Monitoring & logging
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Development & testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+tzdata==2023.3
+click==8.1.7
+rich==13.7.0
+
+# Geographic data
+geopy==2.4.0
+shapely==2.0.2
+
+# ClickHouse for analytics
+clickhouse-connect==0.7.12
+clickhouse-cityhash==1.0.2.5
+
+# Google Maps API
+googlemaps==4.10.0
+
+# Advanced ML libraries
+mlflow==2.8.1
+joblib==1.3.2
+optuna==3.4.0
+
+# Deep Learning for advanced models
+torchvision==0.16.1
+torchaudio==2.1.1
+transformers==4.36.2
+dgl==1.1.2
+
+# Time series specific ML
+sktime==0.26.0
+tslearn==0.6.2
+tsfresh==0.20.2
+
+# Additional ML utilities
+lime==0.2.0.1
+shap==0.43.0
+eli5==0.13.0
+
+# High-performance computing
+numba==0.58.1
+cython==3.0.6
+
+# Async utilities
+asyncio-mqtt==0.16.1
+aiofiles==23.2.1
+aioredis==2.0.1
+
+# API documentation
+fastapi[all]==0.104.1
+
+# Phase 4: Enterprise Security & Compliance Dependencies
+
+# SSO Authentication
+python3-saml==1.16.0
+cryptography==41.0.7
+PyJWT==2.8.0
+
+# Multi-Factor Authentication (MFA)
+pyotp==2.9.0
+qrcode[pil]==7.4.2
+phonenumbers==8.13.26
+twilio==8.10.1
+
+# Backup & Disaster Recovery
+boto3==1.34.0
+botocore==1.34.0
+aiofiles==23.2.1
+
+# Enhanced security utilities
+secrets==1.0.2
+bcrypt==4.1.2
+itsdangerous==2.1.2
+
+# SMS/Email notifications for MFA
+sendgrid==6.10.0
+
+# Phase 5: Admin Controls & Billing Dependencies
+
+# Billing & Payments
+stripe==7.8.0
+razorpay==1.4.1
+
+# Enhanced caching & rate limiting
+redis[hiredis]==5.0.1
+cachetools==5.3.2
+limits==3.7.0
+
+# Background task processing
+celery==5.3.4
+flower==2.0.1
+
+# Enhanced monitoring
+psutil==5.9.6
+prometheus-client==0.19.0
+
+# API documentation generation
+sphinx==7.2.6
+sphinx-rtd-theme==1.3.0
+
+# Enhanced validation & serialization
+marshmallow==3.20.2
+cerberus==1.3.5
+
+# Configuration management
+pydantic-settings==2.1.0
+python-decouple==3.8
+
+# Enhanced logging & monitoring
+structlog==23.2.0
+rich==13.7.0
+colorama==0.4.6
+python-json-logger==2.0.7
+
+# Database optimization
+asyncpg==0.29.0
+sqlalchemy-utils==0.41.1
+
+# Enhanced security for admin functions
+bcrypt==4.1.2

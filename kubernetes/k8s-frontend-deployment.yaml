@@ -1,0 +1,264 @@
+# OptiBid Energy: Frontend Deployment
+# Production-ready Next.js deployment with CDN and security
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: optibid-frontend
+  namespace: optibid
+  labels:
+    app: optibid-frontend
+    version: v1.0.0
+    component: frontend
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: optibid-frontend
+  template:
+    metadata:
+      labels:
+        app: optibid-frontend
+        version: v1.0.0
+        component: frontend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: frontend
+        image: optibid/frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        env:
+        # Application Configuration
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXT_PUBLIC_APP_URL
+          value: "https://optibid.com"
+        - name: NEXT_PUBLIC_API_URL
+          value: "https://api.optibid.com"
+        
+        # API Configuration
+        - name: NEXT_PUBLIC_API_BASE_URL
+          value: "https://api.optibid.com/api/v1"
+        
+        # Feature Flags
+        - name: NEXT_PUBLIC_ENABLE_ANALYTICS
+          value: "true"
+        - name: NEXT_PUBLIC_ENABLE_BILLING
+          value: "true"
+        - name: NEXT_PUBLIC_ENABLE_MARKET_DATA
+          value: "true"
+        
+        # Third-party Integrations
+        - name: NEXT_PUBLIC_GOOGLE_ANALYTICS_ID
+          value: "GA_MEASUREMENT_ID"
+        - name: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: optibid-secrets
+              key: stripe-publishable-key
+              optional: true
+        
+        # Security Configuration
+        - name: CONTENT_SECURITY_POLICY
+          value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.google-analytics.com *.stripe.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: *.optibid.com *.googleusercontent.com; connect-src 'self' *.optibid.com *.stripe.com wss://*.optibid.com"
+        
+        # Performance Configuration
+        - name: NEXT_PUBLIC_CDN_URL
+          value: "https://cdn.optibid.com"
+        - name: NEXT_PUBLIC_ENABLE_SERVICE_WORKER
+          value: "true"
+        
+        # Resource Limits
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /api/startup
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+      
+      # Service Account
+      serviceAccountName: optibid-frontend
+      automountServiceAccountToken: false
+      
+      # Node Affinity for frontend workloads
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values: ["compute-optimized"]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["optibid-frontend"]
+              topologyKey: kubernetes.io/hostname
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: optibid-frontend
+  namespace: optibid
+  labels:
+    app: optibid-frontend
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: optibid-frontend
+
+---
+# Frontend Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: optibid-frontend-pdb
+  namespace: optibid
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: optibid-frontend
+
+---
+# Service Account for Frontend
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: optibid-frontend
+  namespace: optibid
+
+---
+# Ingress for Frontend with TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: optibid-frontend
+  namespace: optibid
+  labels:
+    app: optibid-frontend
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://optibid.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+spec:
+  tls:
+  - hosts:
+    - optibid.com
+    - www.optibid.com
+    secretName: optibid-tls
+  rules:
+  - host: optibid.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: optibid-frontend
+            port:
+              number: 3000
+  - host: www.optibid.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: optibid-frontend
+            port:
+              number: 3000
+
+---
+# ConfigMap for Frontend Environment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optibid-frontend-config
+  namespace: optibid
+data:
+  app.conf: |
+    # Next.js Configuration
+    node_env = production
+    next_public_app_url = https://optibid.com
+    next_public_api_url = https://api.optibid.com
+    
+    # Security Headers
+    content_security_policy = default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.google-analytics.com *.stripe.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: *.optibid.com *.googleusercontent.com; connect-src 'self' *.optibid.com *.stripe.com wss://*.optibid.com
+    
+    # Performance
+    next_public_cdn_url = https://cdn.optibid.com
+    next_public_enable_service_worker = true
+    
+    # Analytics & Monitoring
+    next_public_enable_analytics = true
+    next_public_google_analytics_id = GA_MEASUREMENT_ID

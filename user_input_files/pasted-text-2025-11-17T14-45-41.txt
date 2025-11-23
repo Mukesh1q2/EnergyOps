@@ -1,0 +1,722 @@
+design a production-ready, enterprise-grade frontend website + portal for OptiBid Energy that’s beautiful, accessible, secure, themeable, and tightly integrated with your dashboard and backend. Below you’ll find a full specification you can hand to product managers, designers, and engineering teams: UI pages & components, UX requirements, detailed theme system, admin controls, security/compliance & monitoring requirements, deployment / infra guidance, pricing/tier model, FAQ & API-docs structure, rollout checklist, and helpful LLM prompts to generate copy, docs and tests.
+
+Product summary
+
+OptiBid Energy public website (marketing + signup) → account onboarding → authenticated portal (dashboard, data upload, visual knowledge graphs, AI insights, collaboration). All features available free during development phase. Four selectable, system-wide color modes (light, dark, light/dark hybrid, light/blue) controlled by Master Admin and per-user override. Enterprise-grade controls for toggling features per pricing tier.
+
+1 — Public Site (marketing) — pages & components
+
+Pages:
+
+Home (hero with dynamic energy-flow background + product highlights)
+
+Solutions (Analyst, Trader, Producer, Grid Ops, Storage)
+
+Features (Visual Knowledge Graphs, AI Insights, Realtime Collaboration)
+
+Pricing & Plans (tier comparison + feature toggles)
+
+Docs / API (public API overview + links to auth)
+
+Resources (Blog, Case Studies, Whitepapers)
+
+FAQ
+
+Contact / Sales (lead capture)
+
+Login / Sign up
+
+Status & Legal (privacy, terms, compliance)
+
+Hero + background:
+
+Dynamic SVG/canvas "energy flow" animation: light, subtle particle/flow lines representing energy — runs performant, paused on mobile, accessible (prefers-reduced-motion).
+
+CTA: Try dashboard (free during dev) → Sign up / SSO
+
+Core components:
+
+Navigation bar: logo, product links, resources, pricing, login/signup (sticky, accessible).
+
+Footer: quick links, social, legal, contact, mini-map showing India heatmap preview (static).
+
+Pricing comparison grid with per-feature toggles (show/hide features for each tier).
+
+Signup modal with SSO/SAML links, email form, and password rules.
+
+Cookie & privacy banner (GDPR/India-compliance).
+
+Accessibility:
+
+WCAG 2.1 AA baseline for colors, keyboard navigation, semantic HTML, skip links, ARIA labels.
+
+Performance:
+
+Lighthouse target: >90; first meaningful paint < 1.5s; time to interactive < 3s.
+
+Use SSR (Next.js), CDN, preconnect, and image optimization.
+
+Internationalization:
+
+Multi-language support (i18n) from day one — string catalog, locale-aware dates, currency units.
+
+Mobile-first:
+
+Layout system designed mobile-first; responsive grid breakpoints.
+
+2 — Auth & Onboarding UX
+
+Authentication options (enterprise-grade):
+
+Email / password (with strong password rules)
+
+Multi-Factor Authentication (MFA) — required for Admin & privileged roles (TOTP + SMS fallback)
+
+Single Sign-On (SSO) — SAML 2.0 & OIDC/OAuth2 (Enterprise onboarding)
+
+Social logins optional for trial users (Google, Microsoft)
+
+Guest/demo accounts with limited time access
+
+Onboarding flow:
+
+Sign up (email/SSO) → verify email
+
+Create Organization (Org name, region, industry)
+
+Invite users (role selection) or SSO provisioning
+
+Quick setup wizard: add first site (pin on map), upload sample CSV, run quick forecast
+
+Tour: highlight Knowledge Graph, live collaboration, exports
+
+Security UX:
+
+Security settings page (enable/disable MFA, SSO, password policies, session timeouts)
+
+Single place to view active sessions & revoke token
+
+Consent for data usage & logs
+
+Account & billing:
+
+Billing panel (payment method, invoices, usage meter, plan change)
+
+Invoice generation automation with PDF downloads
+
+Subscription cancellation policy & proration UI
+
+3 — Dashboard & Portal UX (connected after login)
+
+Global shell:
+
+Top nav: search, global filters, organization selector, notifications, user menu
+
+Left nav: Dashboard library, Sandbox (upload), Visual Knowledge Graphs, Optimization Studio, Map, Reports, Admin (for admins only)
+
+Theme switcher in top-right (user-level override + button shows current theme)
+
+Landing dashboard:
+
+Modular canvas area with drag & drop, grid layout, resizable widgets
+
+Dashboard library with templates and saved dashboards
+
+Realtime toggle (Live / Pause) and time range selector
+
+Important widgets:
+
+Time-series charts with dynamic X/Y, multi-axis support, zoom & brush, annotations
+
+Visual Knowledge Graph component (interactive nodes/edges, filters, clustering)
+
+Geospatial map of India with pinning, choropleth, custom layers + Google Maps integration
+
+KPI cards, heatmaps, Sankey for energy flows, Gantt (schedules), scenario runner control
+
+Collaboration panel: live cursors, comments, mentions, change history
+
+File Upload widget (CSV/Excel/JSON/PDF) + preview & auto-map
+
+AI Assistant pane (ask questions, request reports, run optimizer)
+
+Dashboard features:
+
+Widget-level permissioning & toggles (Admin can power on/off feature)
+
+Unlimited widgets (soft performance warnings; server-side limits configurable)
+
+Resizable axes & data pivot UI: users can map any numeric/time column to axis
+
+Save / Publish / Share (generate shareable read-only link with expiry & password)
+
+Export selected widgets to Excel, CSV, PPTX, PDF, and JSON package
+
+Admin features inside dashboard:
+
+Master toggles for features (turn off advanced features for lower tiers)
+
+Theme & branding settings (see Theme System)
+
+Rate-limiting & quotas by org
+
+Audit logs for dashboard modifications & shares
+
+4 — Theme system (4 color modes + admin control)
+
+Requirements:
+
+Four base modes: light, dark, light/dark (auto switches by system preference or time), light/blue.
+
+Master Admin can set default mode and lock available modes per organization/plan.
+
+Users can override per-session or set persistent preference.
+
+Implementation pattern (recommended):
+
+CSS variables (root) for all colors, typography, and spacing.
+
+Tailwind configured with CSS variables using :root[data-theme="light"] { --color-bg: ... }.
+
+Theme JSON stored in DB (table themes), editable by Admin panel.
+
+Theme API endpoints:
+
+GET /api/themes — list
+
+GET /api/themes/:id — get
+
+POST /api/themes — create (admin)
+
+PUT /api/themes/:id — update (admin)
+
+POST /api/orgs/:orgId/theme — set org default theme
+
+Dynamic component styling: charts and graph libraries should read CSS variables to set colors. Provide a theming adapter to translate CSS variables into chart config (e.g., Mapbox style runtime update).
+
+Ensure text color swaps appropriately: all components use semantic tokens (--color-text-primary, --color-text-secondary) rather than hard-coded colors.
+
+Example theme JSON (for engineers):
+
+{
+  "id": "light-blue",
+  "name": "Light / Blue",
+  "variables": {
+    "--color-bg": "#f5f9ff",
+    "--color-surface": "#ffffff",
+    "--color-primary": "#0b6cff",
+    "--color-accent": "#00a3ff",
+    "--color-text-primary": "#0f1724",
+    "--color-text-secondary": "#334155"
+  }
+}
+
+
+Chart integration:
+
+Provide a theme adapter that maps CSS tokens to chart configs (Recharts/Plotly/Deck.gl). When theme changes, re-render or hot-swap series colors.
+
+Accessibility:
+
+All themes must meet color-contrast WCAG AA thresholds — include a validation job in CI to test default themes.
+
+5 — Admin & Control Panel (enterprise)
+
+Admin sections:
+
+Organization settings & subscription
+
+User management (invite, role, deactivate, SSO provisioning)
+
+Feature flags: per-feature on/off (toggle visibility for pricing tiers)
+
+Theme & branding (upload logo, set default theme, colors)
+
+Billing & invoices
+
+Audit logs & activity feed (searchable)
+
+Security & compliance settings (MFA enforcement, SSO config, session policy)
+
+System health (APM, logs, alerts with basic charts)
+
+Export & backup controls (trigger on-demand backups)
+
+Pricing & metering: configure tiers, quotas, trial periods, trial expirations
+
+Incident & status management (integrate status page)
+
+Feature flags & pricing connection:
+
+Build a feature catalog keyed to flags. Pricing tiers map to allowed flags and quotas. Admin toggles update feature flags in runtime (via a central feature flag service like LaunchDarkly or open-source Unleash).
+
+RBAC:
+
+Role templates: SuperAdmin, OrgAdmin, Analyst, Trader, Viewer, Auditor. Granular permissioning (API-level, page-level, widget-level).
+
+Audit & logging:
+
+Immutable audit trail (append-only), exportable for compliance and audits.
+
+6 — Security & Enterprise compliance (must-haves)
+
+You listed critical gaps — we’ll resolve them and provide enterprise-level controls:
+
+Authentication & identity:
+
+Mandatory MFA for admin & privileged users; optional for others but recommended.
+
+SSO: SAML 2.0 + OIDC providers. Automatic provisioning via SCIM.
+
+Password policies, session expiry, token revocation.
+
+Access controls:
+
+RBAC + Attribute-Based Access Controls (ABAC) for fine-grained rules.
+
+Least privilege defaults; role review process.
+
+Encryption & key management:
+
+TLS everywhere (HSTS)
+
+Encrypt at rest: application-level encryption for sensitive fields; use KMS (Cloud KMS / HashiCorp Vault).
+
+Rotate keys regularly.
+
+Vulnerability & secure SDLC:
+
+Integrate SCA (Dependabot), SAST/DAST in CI pipeline (e.g., Snyk, SonarQube).
+
+Monthly automated vulnerability scans + quarterly pentests.
+
+Vulnerability management & patch policy with SLA.
+
+Monitoring & incident detection:
+
+APM (Datadog / NewRelic / Elastic APM) + distributed tracing (OpenTelemetry).
+
+Centralized logging (ELK or Loki) with 90-day retention (configurable).
+
+Real-time alerting (PagerDuty / Opsgenie) + on-call playbooks.
+
+Backups & DR:
+
+Automated nightly backups (DB snapshots stored encrypted).
+
+Cross-region backup copies; test restore quarterly.
+
+Disaster Recovery plan & runbooks; RTO/RPO targets (e.g., 1 hour RTO, 15 min RPO for critical systems).
+
+Zero-downtime deployment strategies (blue/green or canary with feature flags).
+
+High Availability & Scalability:
+
+Load balancers (ALB/NGINX) + autoscaling groups / HPA for containers.
+
+Use managed Kafka/K8s for critical scaling.
+
+CDN (CloudFront / Cloudflare) for static assets & global performance.
+
+Circuit breakers and rate limiting to protect backend.
+
+Compliance & certification roadmap:
+
+SOC 2 Type II audit (start pre-audit assessment)
+
+ISO 27001 program (policy, ISMS)
+
+Data Residency & Privacy (India/Local laws): option for regional data storage.
+
+Logging & audit:
+
+Full audit logs for user actions and data exports (immutable).
+
+Retention policies aligned with compliance.
+
+Penetration & red-team:
+
+Regular pen-testing schedule; bug bounty program for mature product.
+
+Threat protection:
+
+Web WAF, DDoS protection, endpoint protection on servers.
+
+7 — Monitoring, Observability & DevOps
+
+Observability stack:
+
+Metrics: Prometheus + Grafana (dashboards for SLOs)
+
+Tracing: OpenTelemetry → Jaeger / Tempo
+
+Logs: ELK (Elastic) or Loki + Grafana
+
+APM: Datadog/NewRelic integration for deep traces & errors
+
+CI/CD:
+
+GitHub Actions / GitLab CI with pipelines for build → test → deploy to staging → canary → prod
+
+IaC: Terraform for infra provisioning, Helm for K8s charts
+
+Secrets: Vault or cloud secret manager
+
+Canary deploys + automated rollback on defined thresholds
+
+SLOs & SLA:
+
+Define SLOs: availability, latency (e.g., 99.9% uptime), and error budgets
+
+Public SLA page showing uptime & credits
+
+Automated testing:
+
+Unit, integration, E2E (Playwright / Cypress), accessibility tests (axe-core)
+
+Performance regression tests in CI
+
+8 — Billing, Business Continuity & Pricing model
+
+Billing features:
+
+Subscription plans, metered usage for API / streaming / storage
+
+Trial periods & enterprise custom pricing
+
+Payment integrations: Stripe (recommended), Razorpay (India), plus invoicing flow
+
+Automated invoices (PDF), revenue recognition (connect to finance system)
+
+Suggested tier model (example)
+
+Free (development phase): full features unlocked for limited time; limited storage & support
+
+Starter: core dashboards, basic forecasting, single org admin, email support
+
+Professional: team dashboards, real-time streaming, optimization module, SSO, 24x5 support
+
+Enterprise: all features + on-prem/local LLM, dedicated SLA, SOC2 compliance, advanced integrations, 24x7 support & onboarding
+
+Feature-to-tier example matrix:
+
+Visual Knowledge Graphs — Pro+
+
+AI-Powered Insights (LLM) — Pro (cloud), Enterprise (on-prem)
+
+Real-time Collaboration — Starter+
+
+Map & geospatial layers — Starter+
+
+Fine-tuned optimizers & RL agents — Enterprise
+
+Advanced security (DLP, Zero Trust) — Enterprise
+
+Number of seats & API calls — metered
+
+Pricing UI:
+
+Admin can toggle features available per plan in Control Panel, which syncs with billing & provisioning.
+
+9 — Visual Knowledge Graphs & Real-time Collaboration (design)
+
+Visual Knowledge Graphs:
+
+Interactive node/edge graphs with layout algorithms (force-directed, hierarchical).
+
+Features:
+
+Searchable nodes, filter by type, time-slider to view temporal evolution.
+
+Node tooltips with quick metrics (capacity, last bid, status).
+
+Expand/collapse groups; clustering and auto-layout suggestions.
+
+Export graph as PNG/SVG and node/edge CSV.
+
+Backend: graph DB (Neo4j / JanusGraph) or use Postgres for edges + caching.
+
+AI-Powered Insights:
+
+LLM assistant in a side pane to explain patterns found in the graph, suggest clusters, and generate human-readable summaries & slide bullets.
+
+Confidence score and cite source data (RAG).
+
+Real-time Collaboration:
+
+Live cursors, comments with mentions, change history and versioning for dashboards.
+
+Intelligent conflict resolution: last-writer-wins + merge UI with diff visualization.
+
+Locking for critical widgets (admin can lock layout during demos)
+
+Presence indicators, chat, and threaded discussions per dashboard.
+
+10 — API Docs & Developer Experience
+
+Public API surface (outline):
+
+Auth:
+
+POST /auth/login
+
+POST /auth/refresh
+
+SSO endpoints (/auth/saml, /auth/oidc)
+
+Organization:
+
+GET /orgs/:id
+
+POST /orgs
+
+Users:
+
+CRUD users, invite, role assignment
+
+Data:
+
+POST /uploads (multipart)
+
+GET /datasets/:id
+
+POST /datasets/:id/map-schema
+
+Streams:
+
+GET /streams/topics
+
+POST /streams/subscribe (webhook/websocket callback)
+
+Forecast & optimizer:
+
+POST /predict (payload: datasetId, model, horizon)
+
+POST /optimize (scenario payload)
+
+Dashboards:
+
+GET /dashboards
+
+POST /dashboards/:id/share (generate link)
+
+Themes:
+
+GET /themes
+
+PUT /orgs/:orgId/theme
+
+Billing:
+
+GET /billing/invoices
+
+POST /billing/subscribe
+
+Docs UX:
+
+OpenAPI / Swagger UI for public endpoints (auto-generated)
+
+Developer portal with examples, SDKs (JS, Python), quickstarts & interactive try-it
+
+API keys management & rate limits; OAuth2 scopes for clients
+
+API Docs structure:
+
+Quickstart (3 steps to call API)
+
+Authentication (JWT & SSO)
+
+Core Concepts (datasets, streams, dashboards)
+
+Endpoints reference (OpenAPI)
+
+SDKs & examples
+
+Webhooks & events (sample payloads)
+
+Rate limits & pricing
+
+Changelog & versioning policy
+
+Versioning:
+
+Semantic versioning (v1, v2) with deprecation schedule.
+
+11 — FAQ — draft (short)
+
+Q: Is OptiBid Energy free during development?
+A: Yes — full-feature access for registered users while we develop. Usage limits may apply.
+
+Q: Can we deploy OptiBid on-prem?
+A: Enterprise supports hybrid and on-prem deployment (LLM & data residency available).
+
+Q: What authentication methods are supported?
+A: Email/password, MFA, SSO via SAML/OIDC, SCIM provisioning.
+
+Q: How do I share a dashboard with customers?
+A: Use “Share” → create tokenized read-only link with optional expiry and password.
+
+Q: What export formats are available?
+A: CSV, Excel, XML, PPTX, PDF, and JSON package for import.
+
+Q: How do you ensure data security?
+A: TLS, RBAC, audit logs, KMS encryption, vulnerability scanning, and SOC2/ISO programs in progress.
+
+Q: Can I use an LLM locally?
+A: Yes — Enterprise tier supports local LLM hosting for regulatory needs.
+
+12 — UX copy & LLM prompts (for marketing copy, docs, and product help)
+
+System prompt (for LLM generating docs):
+
+You are OptiBid Copywriter. Produce concise, professional, and accessible copy for the product. Respect tone: clear, confident, slightly energetic. Output must be markdown with headings and one-line summaries for each feature.
+
+
+Marketing hero prompt:
+
+Write a 40–60 word hero headline + 2 supporting bullets for OptiBid Energy highlighting: real-time bidding, AI-powered optimization, and interactive India map. Include CTA text variations (Try free, Book demo).
+
+
+API docs generator prompt:
+
+Given an OpenAPI spec (paste), generate a 1-page quickstart (JS + curl) and a short explanation for each endpoint, plus example responses.
+
+
+Release notes / changelog prompt:
+
+Summarize user-facing changes from commit messages for release notes targeted at analysts and admins. Provide 3-level headings: Highlights, Improvements, Bug Fixes.
+
+13 — Implementation & rollout checklist (engineer-ready)
+
+Phase A — Marketing site & auth (2–4 weeks)
+
+ Next.js marketing site + animated energy-flow background (canvas/SVG).
+
+ Signup/login with MFA + email verification.
+
+ SSO mock integration.
+
+ Static pages (pricing, features, FAQ).
+
+Phase B — Portal & dashboard core (6–10 weeks)
+
+ Portal shell + dashboard canvas (react-grid-layout).
+
+ Core widgets: timeseries, KPI, map with Google Maps integration.
+
+ File upload + quick analysis microservice.
+
+ Theme system + admin theme API.
+
+Phase C — Enterprise features & hardening (8–12 weeks)
+
+ SSO (SAML/OIDC) full integration & SCIM.
+
+ Monitoring & APM (OpenTelemetry + Grafana + Datadog).
+
+ Backups & DR tested.
+
+ Billing & invoicing integration.
+
+ SOC2 readiness & security automation.
+
+Phase D — Advanced AI & collaboration (Ongoing)
+
+ LLM integration (cloud + on-prem options), RAG pipeline.
+
+ Visual Knowledge Graphs, collaboration live-edit.
+
+ Optimization microservice & model ops.
+
+14 — Enterprise-level checklists (must do before GA)
+
+Security:
+
+MFA enforced for admins
+
+SSO & SCIM tested with customers
+
+Monthly vulnerability scanning & quarterly pentest
+
+Secrets rotation & KMS
+
+Observability:
+
+APM dashboards + SLOs
+
+Centralized logs with retention and search
+
+Tracing across services
+
+Resilience:
+
+DR plan with tested restore
+
+Backup verification scripts
+
+Blue/green deploy & canary rollouts
+
+Compliance:
+
+Data processing agreements & privacy policy
+
+Onboard SOC2/ISO program manager (if pursuing)
+
+Operational:
+
+24x7 on-call rotation & runbooks
+
+Support SLAs & escalation matrix
+
+Status page & incident postmortem framework
+
+15 — Developer snippets (quick patterns)
+
+Theme toggle (frontend pseudocode):
+
+// set theme by calling backend
+await api.post(`/orgs/${orgId}/theme`, { themeId: 'light-blue' });
+// local apply
+document.documentElement.setAttribute('data-theme', 'light-blue');
+
+
+Shareable link generation (API):
+
+POST /dashboards/:id/share
+Body: { expiresAt: "2026-01-01T00:00Z", password: true, allowedDomains: ["example.com"] }
+Response: { url: "https://optibid.energy/s/d/abc123", token: "abc123" }
+
+
+MFA enforcement policy (admin):
+
+POST /orgs/:id/security/policies — { requireMFA: true, minPasswordLength: 12, sessionTimeoutMins: 60 }
+
+16 — Pricing & tiering operational notes
+
+Tie feature flags to billing backend; when admin toggles a flag, billing metadata must update.
+
+Offer metered usage billing for heavy streaming/compute.
+
+Provide trial credits; auto-notify account managers before trial expiry.
+
+17 — KPIs to measure during dev & pre-GA
+
+Time-to-first-dashboard (goal: < 3 minutes)
+
+Upload-to-visualization time
+
+Dashboard initial render time (< 2s)
+
+Forecast latency (endpoint)
+
+Mean time to recovery (MTTR)
+
+Security incident detection time
+
+18 — Final quick wins you can ask devs to deliver in 2 weeks
+
+Marketing site + animated background + signup flow (MFA stub).
+
+Portal shell + simple dashboard with 1 resizable time-series chart connected to CSV upload.
+
+Simple theme switcher (light/dark) persisted per org.

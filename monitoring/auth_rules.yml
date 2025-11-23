@@ -1,0 +1,341 @@
+# Prometheus Authentication and Authorization Alerting Rules
+# OptiBid Energy Platform
+
+groups:
+  - name: authentication_alerts
+    interval: 30s
+    rules:
+      # Login Success/Failure
+      - alert: LoginSuccessRateLow
+        expr: |
+          (
+            rate(successful_login_attempts_total[5m]) / 
+            rate(login_attempts_total[5m])
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: authentication
+          component: login
+        annotations:
+          summary: "Login success rate is low"
+          description: "Less than 50% of login attempts are successful. Check for service issues or attacks."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/low-success-rate"
+
+      - alert: NoSuccessfulLogins
+        expr: rate(successful_login_attempts_total[10m]) == 0
+        for: 15m
+        labels:
+          severity: critical
+          category: authentication
+          component: login
+        annotations:
+          summary: "CRITICAL: No successful logins in 15 minutes"
+          description: "Authentication service may be down or misconfigured. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/no-logins"
+
+      # Password Reset
+      - alert: HighPasswordResetRate
+        expr: rate(password_reset_requests_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: authentication
+          component: password_reset
+        annotations:
+          summary: "High password reset request rate"
+          description: "More than 10 password reset requests per second. Possible account takeover attempt."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/high-reset-rate"
+
+      - alert: PasswordResetServiceDown
+        expr: password_reset_service_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: authentication
+          component: password_reset
+        annotations:
+          summary: "CRITICAL: Password reset service unavailable"
+          description: "Users cannot reset passwords. Check email service and reset endpoint."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/reset-service-down"
+
+      # Account Lockout
+      - alert: HighAccountLockoutRate
+        expr: rate(account_lockouts_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: authentication
+          component: account_lockout
+        annotations:
+          summary: "High account lockout rate"
+          description: "More than 5 accounts locked out per second. Possible credential stuffing attack."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/high-lockout-rate"
+
+      - alert: AccountLockoutServiceDown
+        expr: account_lockout_service_available == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: authentication
+          component: account_lockout
+        annotations:
+          summary: "Account lockout service unavailable"
+          description: "Account lockout protection is not working. Brute force attacks may succeed."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/lockout-service-down"
+
+      # SSO Authentication
+      - alert: SSOAuthenticationFailureRate
+        expr: |
+          (
+            rate(sso_authentication_failed_total[5m]) / 
+            rate(sso_authentication_attempts_total[5m])
+          ) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+          category: authentication
+          component: sso
+        annotations:
+          summary: "High SSO authentication failure rate"
+          description: "More than 30% of SSO authentications are failing. Check SSO provider integration."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/sso-failures"
+
+      - alert: SSOProviderDown
+        expr: sso_provider_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: authentication
+          component: sso
+        annotations:
+          summary: "CRITICAL: SSO provider unavailable"
+          description: "SSO provider is not responding. Users cannot authenticate via SSO."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/sso-provider-down"
+
+      # Token Generation
+      - alert: TokenGenerationFailureRate
+        expr: |
+          (
+            rate(token_generation_failed_total[5m]) / 
+            rate(token_generation_attempts_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: authentication
+          component: token
+        annotations:
+          summary: "High token generation failure rate"
+          description: "More than 10% of token generations are failing. Check JWT service."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/token-generation-failures"
+
+      - alert: TokenGenerationServiceDown
+        expr: token_generation_service_available == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: authentication
+          component: token
+        annotations:
+          summary: "CRITICAL: Token generation service unavailable"
+          description: "Cannot generate authentication tokens. Users cannot log in."
+          runbook_url: "https://docs.optibid.io/runbooks/auth/token-service-down"
+
+  - name: authorization_alerts
+    interval: 30s
+    rules:
+      # Permission Checks
+      - alert: HighPermissionDenialRate
+        expr: |
+          (
+            rate(permission_denied_total[5m]) / 
+            rate(permission_checks_total[5m])
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: authorization
+          component: permissions
+        annotations:
+          summary: "High permission denial rate"
+          description: "More than 50% of permission checks are being denied. Check for misconfiguration."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/high-denial-rate"
+
+      - alert: PermissionServiceDown
+        expr: permission_service_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: authorization
+          component: permissions
+        annotations:
+          summary: "CRITICAL: Permission service unavailable"
+          description: "Cannot check permissions. Authorization is failing."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/permission-service-down"
+
+      # Role Management
+      - alert: UnauthorizedRoleChange
+        expr: rate(unauthorized_role_changes_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: authorization
+          component: roles
+        annotations:
+          summary: "CRITICAL: Unauthorized role change attempt"
+          description: "Attempts to change user roles without authorization detected. Investigate immediately."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/unauthorized-role-change"
+
+      - alert: PrivilegeEscalationAttempt
+        expr: rate(privilege_escalation_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: authorization
+          component: roles
+        annotations:
+          summary: "CRITICAL: Privilege escalation attempt detected"
+          description: "Attempts to escalate privileges detected. Immediate investigation required."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/privilege-escalation"
+
+      # RBAC (Role-Based Access Control)
+      - alert: RBACPolicyViolation
+        expr: rate(rbac_policy_violations_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: authorization
+          component: rbac
+        annotations:
+          summary: "High RBAC policy violation rate"
+          description: "More than 5 RBAC policy violations per second. Review access policies."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/rbac-violations"
+
+      - alert: RBACServiceDown
+        expr: rbac_service_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: authorization
+          component: rbac
+        annotations:
+          summary: "CRITICAL: RBAC service unavailable"
+          description: "Role-based access control is not working. Authorization may be compromised."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/rbac-service-down"
+
+      # Organization Isolation
+      - alert: OrganizationIsolationViolation
+        expr: rate(org_isolation_violations_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: authorization
+          component: multi_tenancy
+        annotations:
+          summary: "CRITICAL: Organization isolation violation"
+          description: "Cross-organization data access detected. Multi-tenancy security compromised."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/org-isolation-violation"
+
+      # Admin Access
+      - alert: UnusualAdminActivity
+        expr: rate(admin_actions_total[1h]) > avg_over_time(admin_actions_total[24h]) * 5
+        for: 30m
+        labels:
+          severity: warning
+          category: authorization
+          component: admin
+        annotations:
+          summary: "Unusual admin activity detected"
+          description: "Admin activity is 5x higher than normal. Investigate for compromised admin account."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/unusual-admin-activity"
+
+      - alert: AdminAccessFromUnusualLocation
+        expr: admin_access_unusual_location == 1
+        for: 1m
+        labels:
+          severity: warning
+          category: authorization
+          component: admin
+        annotations:
+          summary: "Admin access from unusual location"
+          description: "Admin account accessed from unusual geographic location. Verify legitimacy."
+          runbook_url: "https://docs.optibid.io/runbooks/authz/admin-unusual-location"
+
+  - name: session_alerts
+    interval: 30s
+    rules:
+      # Session Management
+      - alert: HighActiveSessions
+        expr: active_sessions_total > 10000
+        for: 10m
+        labels:
+          severity: warning
+          category: session
+          component: management
+        annotations:
+          summary: "High number of active sessions"
+          description: "More than 10,000 active sessions. Check for session leaks or unusual activity."
+          runbook_url: "https://docs.optibid.io/runbooks/session/high-active-sessions"
+
+      - alert: SessionStorageDown
+        expr: session_storage_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: session
+          component: storage
+        annotations:
+          summary: "CRITICAL: Session storage unavailable"
+          description: "Cannot store or retrieve sessions. Users may be logged out."
+          runbook_url: "https://docs.optibid.io/runbooks/session/storage-down"
+
+      - alert: SessionExpirationServiceDown
+        expr: session_expiration_service_available == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: session
+          component: expiration
+        annotations:
+          summary: "Session expiration service unavailable"
+          description: "Sessions may not be expiring properly. Security risk."
+          runbook_url: "https://docs.optibid.io/runbooks/session/expiration-service-down"
+
+      # Concurrent Sessions
+      - alert: ExcessiveConcurrentSessions
+        expr: user_concurrent_sessions_total > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: session
+          component: concurrent
+        annotations:
+          summary: "User has excessive concurrent sessions"
+          description: "User has more than 10 concurrent sessions. Possible account sharing or compromise."
+          runbook_url: "https://docs.optibid.io/runbooks/session/excessive-concurrent"
+
+      # Session Hijacking
+      - alert: SessionIPChange
+        expr: rate(session_ip_changes_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: session
+          component: security
+        annotations:
+          summary: "High rate of session IP changes"
+          description: "Sessions are frequently changing IP addresses. Possible session hijacking."
+          runbook_url: "https://docs.optibid.io/runbooks/session/ip-changes"
+
+      - alert: SessionUserAgentChange
+        expr: rate(session_user_agent_changes_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: session
+          component: security
+        annotations:
+          summary: "High rate of session user agent changes"
+          description: "Sessions are frequently changing user agents. Possible session hijacking."
+          runbook_url: "https://docs.optibid.io/runbooks/session/user-agent-changes"

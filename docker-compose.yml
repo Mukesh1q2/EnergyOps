@@ -1,0 +1,426 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with PostGIS and TimescaleDB
+  postgres:
+    image: timescale/timescaledb-ha:pg15-latest
+    container_name: optibid-postgres
+    environment:
+      POSTGRES_DB: optibid
+      POSTGRES_USER: optibid
+      POSTGRES_PASSWORD: optibid_password_2025
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
+    networks:
+      - optibid-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optibid -d optibid"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: optibid-redis
+    command: redis-server --appendonly yes --requirepass redis_password_2025
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - optibid-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Apache Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: optibid-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - optibid-network
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: optibid-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_LOG_SEGMENT_BYTES: 268435456
+      KAFKA_LOG_INDEX_SIZE_MAX_BYTES: 10485760
+      KAFKA_LOG_FLUSH_INTERVAL_MESSAGES: 10000
+      KAFKA_LOG_FLUSH_INTERVAL_MS: 1000
+      KAFKA_BROKER_ID_GENERATION_ENABLED: "true"
+    networks:
+      - optibid-network
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Kafka UI for monitoring
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: optibid-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - optibid-network
+
+  # ClickHouse for analytics
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.12-alpine
+    container_name: optibid-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: optibid_analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse_password_2025
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - optibid-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ClickHouse UI for monitoring
+  clickhouse-ui:
+    image: ghcr.io/altinity/clickhouse-ui:latest
+    container_name: optibid-clickhouse-ui
+    depends_on:
+      - clickhouse
+    ports:
+      - "8081:8080"
+    environment:
+      CLICKHOUSE_URL: http://clickhouse:8123
+    networks:
+      - optibid-network
+
+  # MLflow for model tracking
+  mlflow:
+    image: python:3.11-slim
+    container_name: optibid-mlflow
+    depends_on:
+      - postgres
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql+psycopg2://optibid:optibid_password_2025@postgres:5432/optibid_mlflow
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+      MLFLOW_TRACKING_URI: http://localhost:5000
+    volumes:
+      - mlflow_data:/mlflow
+      - ./models:/mlflow/artifacts
+    networks:
+      - optibid-network
+    command: >
+      sh -c "
+        echo 'Waiting for postgres...' &&
+        sleep 10 &&
+        echo 'Starting MLflow server...' &&
+        mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql+psycopg2://optibid:optibid_password_2025@postgres:5432/optibid_mlflow --default-artifact-root /mlflow/artifacts
+      "
+    restart: unless-stopped
+
+  # Phase 4: Enterprise Security & Compliance Services
+  
+  # MinIO for backup storage (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: optibid-minio
+    ports:
+      - "9001:9000"
+      - "9002:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minio_password_2025
+      MINIO_CONSOLE_ADDRESS: ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - optibid-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: optibid-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - optibid-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: optibid-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: grafana_password_2025
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - optibid-network
+    restart: unless-stopped
+
+  # Backup scheduler service
+  backup-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: optibid-backup-scheduler
+    depends_on:
+      - postgres
+      - minio
+      - redis
+    environment:
+      # Backup configuration
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: 30
+      S3_BACKUP_BUCKET: optibid-backups
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minio_password_2025
+      S3_SECURE: "false"
+      
+      # Database backup
+      DATABASE_URL: postgresql+psycopg2://optibid:optibid_password_2025@postgres:5432/optibid
+      
+      # Security
+      BACKUP_ENCRYPTION_KEY: backup-encryption-key-2025
+    networks:
+      - optibid-network
+    volumes:
+      - backup_data:/backups
+      - ./scripts:/scripts
+    command: >
+      sh -c "
+        echo 'Starting backup scheduler...' &&
+        python /scripts/backup_scheduler.py
+      "
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: optibid-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://optibid:optibid_password_2025@postgres:5432/optibid
+      
+      # Redis
+      REDIS_URL: redis://:redis_password_2025@redis:6379/0
+      
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      
+      # ClickHouse
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse_password_2025
+      CLICKHOUSE_DATABASE: optibid_analytics
+      
+      # MLflow
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_EXPERIMENT_NAME: optibid_forecasting
+      
+      # Models directory
+      MODELS_DIR: /app/models
+      
+      # Security
+      SECRET_KEY: your-super-secret-key-change-in-production-2025
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "true"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      
+      # Market Data Simulation
+      SIMULATION_MODE: "true"
+      SIMULATION_INTERVAL: 5
+      ENABLE_KAFKA: "true"
+      ENABLE_REDIS: "true"
+      ENABLE_WEBSOCKET: "true"
+      
+    networks:
+      - optibid-network
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    command: >
+      sh -c "
+        echo 'Waiting for services...' &&
+        sleep 10 &&
+        echo 'Starting backend server...' &&
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    restart: unless-stopped
+
+  # Market Data Simulator
+  market-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: optibid-simulator
+    depends_on:
+      - backend
+    environment:
+      - API_BASE_URL=http://backend:8000
+    networks:
+      - optibid-network
+    command: >
+      sh -c "
+        echo 'Starting market data simulator...' &&
+        python scripts/market_simulator.py --interval 3 --duration 0
+      "
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: optibid-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NODE_ENV=development
+    networks:
+      - optibid-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: optibid-nginx
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    networks:
+      - optibid-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  clickhouse_data:
+    driver: local
+  mlflow_data:
+    driver: local
+  minio_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  backup_data:
+    driver: local
+
+networks:
+  optibid-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
