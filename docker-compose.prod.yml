@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: ghcr.io/${GHCR_NAMESPACE}/energyops-frontend:latest
+    ports:
+      - "80:3000"
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=http://backend:8000
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    image: ghcr.io/${GHCR_NAMESPACE}/energyops-backend:latest
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/energyops
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: example
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+volumes:
+  pgdata:
