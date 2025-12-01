@@ -157,7 +157,18 @@ export function WidgetWrapper({
   children, 
   className = '' 
 }: WidgetWrapperProps) {
-  const { isFeatureEnabled } = useFeatureFlags()
+  const context = useContext(FeatureFlagContext)
+  
+  // If no context available, render children without gating
+  if (!context) {
+    return (
+      <div className={`${className}`} data-widget={widgetId} data-feature={feature}>
+        {children}
+      </div>
+    )
+  }
+
+  const { isFeatureEnabled } = context
 
   if (!isFeatureEnabled(feature)) {
     return (

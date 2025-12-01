@@ -5,6 +5,9 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { I18nProvider } from '@/components/providers/I18nProvider'
 import { Analytics } from '@/components/providers/Analytics'
 import { FeatureFlagProvider } from '@/lib/feature-flags/FeatureFlagProvider'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { QueryProvider } from '@/components/providers/QueryProvider'
+import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -155,22 +158,54 @@ export default function RootLayout({
           Skip to main content
         </a>
         
-        {/* Feature Flags Provider */}
-        <FeatureFlagProvider organizationId="org-123" userId="user-456">
-          {/* Theme provider for dynamic theming */}
-          <ThemeProvider>
-            {/* Internationalization provider */}
-            <I18nProvider>
-              {/* Analytics tracking */}
-              <Analytics />
-              
-              {/* Main content */}
-              <div id="root" className="min-h-screen flex flex-col">
-                {children}
-              </div>
-            </I18nProvider>
-          </ThemeProvider>
-        </FeatureFlagProvider>
+        {/* React Query Provider */}
+        <QueryProvider>
+          {/* Authentication Provider */}
+          <AuthProvider>
+            {/* Feature Flags Provider */}
+            <FeatureFlagProvider organizationId="org-123" userId="user-456">
+            {/* Theme provider for dynamic theming */}
+            <ThemeProvider>
+              {/* Internationalization provider */}
+              <I18nProvider>
+                {/* Analytics tracking */}
+                <Analytics />
+                
+                {/* Main content */}
+                <div id="root" className="min-h-screen flex flex-col">
+                  {children}
+                </div>
+                
+                {/* Toast notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
+                    },
+                    success: {
+                      duration: 3000,
+                      iconTheme: {
+                        primary: '#10B981',
+                        secondary: '#fff',
+                      },
+                    },
+                    error: {
+                      duration: 5000,
+                      iconTheme: {
+                        primary: '#EF4444',
+                        secondary: '#fff',
+                      },
+                    },
+                  }}
+                />
+              </I18nProvider>
+            </ThemeProvider>
+          </FeatureFlagProvider>
+          </AuthProvider>
+        </QueryProvider>
         
         {/* Service worker registration */}
         <script

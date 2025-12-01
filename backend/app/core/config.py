@@ -5,8 +5,8 @@ Centralized configuration management using Pydantic Settings
 
 import os
 from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
 
 class Settings(BaseSettings):
@@ -29,7 +29,14 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # CORS
-    ALLOWED_HOSTS: str = "localhost,127.0.0.1,0.0.0.0"
+    ALLOWED_HOSTS: str = "http://localhost:3000,http://localhost:5173,https://app.optibid.io,https://dashboard.optibid.io"
+    
+    @property
+    def allowed_hosts_list(self) -> List[str]:
+        """Parse ALLOWED_HOSTS string into list"""
+        if isinstance(self.ALLOWED_HOSTS, str):
+            return [host.strip() for host in self.ALLOWED_HOSTS.split(",")]
+        return self.ALLOWED_HOSTS
     
     # Database
     DATABASE_URL: str = os.getenv(
@@ -219,25 +226,12 @@ class Settings(BaseSettings):
     ADMIN_MAX_USERS_PER_ORG: int = int(os.getenv("ADMIN_MAX_USERS_PER_ORG", "100"))
     ADMIN_REQUIRE_EMAIL_VERIFICATION: bool = os.getenv("ADMIN_REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
     ADMIN_ALLOW_SELF_REGISTRATION: bool = os.getenv("ADMIN_ALLOW_SELF_REGISTRATION", "false").lower() == "true"
-    ADMIN_ALLOWED_EMAIL_DOMAINS: str = os.getenv("ADMIN_ALLOWED_EMAIL_DOMAINS", "")
+    ADMIN_ALLOWED_EMAIL_DOMAINS: List[str] = os.getenv("ADMIN_ALLOWED_EMAIL_DOMAINS", "").split(",") if os.getenv("ADMIN_ALLOWED_EMAIL_DOMAINS") else []
     
     # Feature Flags Configuration
     FEATURE_FLAGS_ENVIRONMENT: str = os.getenv("FEATURE_FLAGS_ENVIRONMENT", "production")
     FEATURE_FLAGS_ROLLOUT_PERCENTAGE: int = int(os.getenv("FEATURE_FLAGS_ROLLOUT_PERCENTAGE", "0"))
     FEATURE_FLAGS_CACHE_TTL: int = int(os.getenv("FEATURE_FLAGS_CACHE_TTL", "300"))  # 5 minutes
-    
-    # Service Enable/Disable Flags
-    # All optional services default to false for minimal deployment
-    # Enable them in .env file as needed for enhanced functionality
-    ENABLE_KAFKA: bool = os.getenv("ENABLE_KAFKA", "false").lower() == "true"
-    ENABLE_CLICKHOUSE: bool = os.getenv("ENABLE_CLICKHOUSE", "false").lower() == "true"
-    ENABLE_MLFLOW: bool = os.getenv("ENABLE_MLFLOW", "false").lower() == "true"
-    ENABLE_REDIS: bool = os.getenv("ENABLE_REDIS", "false").lower() == "true"
-    ENABLE_WEBSOCKET: bool = os.getenv("ENABLE_WEBSOCKET", "false").lower() == "true"
-    
-    # Simulation Mode
-    SIMULATION_MODE: bool = os.getenv("SIMULATION_MODE", "true").lower() == "true"
-    SIMULATION_INTERVAL: int = int(os.getenv("SIMULATION_INTERVAL", "5"))
     
     # Billing Configuration
     STRIPE_WEBHOOK_SECRET: Optional[str] = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -284,7 +278,7 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/3")
     CELERY_TASK_SERIALIZER: str = os.getenv("CELERY_TASK_SERIALIZER", "json")
     CELERY_RESULT_SERIALIZER: str = os.getenv("CELERY_RESULT_SERIALIZER", "json")
-    CELERY_ACCEPT_CONTENT: str = "json"
+    CELERY_ACCEPT_CONTENT: List[str] = ["json"]
     CELERY_TIMEZONE: str = os.getenv("CELERY_TIMEZONE", "UTC")
     CELERY_ENABLE_UTC: bool = True
     
@@ -304,11 +298,11 @@ class Settings(BaseSettings):
     ORG_DESCRIPTION_MAX_LENGTH: int = int(os.getenv("ORG_DESCRIPTION_MAX_LENGTH", "1000"))
     ORG_SETTINGS_CACHE_TTL: int = int(os.getenv("ORG_SETTINGS_CACHE_TTL", "1800"))  # 30 minutes
     
-
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 # Create settings instance
 settings = Settings()

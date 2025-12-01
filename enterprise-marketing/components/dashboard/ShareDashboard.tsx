@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -20,11 +20,48 @@ import { Dialog, Transition, Tab } from '@headlessui/react'
 import { Fragment } from 'react'
 import { clsx } from 'clsx'
 
+/**
+ * Hook to isolate scroll events within a container, preventing propagation
+ * to parent components. This prevents modal scroll from triggering
+ * unintended state mutations in the dashboard.
+ * Validates: Requirements 2.3, 2.4
+ */
+function useScrollIsolation(ref: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    const container = ref.current
+    if (!container) return
+
+    const handleScroll = (e: Event) => {
+      e.stopPropagation()
+    }
+
+    const handleWheel = (e: WheelEvent) => {
+      e.stopPropagation()
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.stopPropagation()
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    container.addEventListener('wheel', handleWheel, { passive: true })
+    container.addEventListener('touchmove', handleTouchMove, { passive: true })
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('wheel', handleWheel)
+      container.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [ref])
+}
+
 interface ShareDashboardProps {
   isOpen: boolean
   onClose: () => void
   dashboard: any
   user: any
+  /** If true, shows a "Feature coming soon" message instead of the full UI */
+  isFeatureDisabled?: boolean
 }
 
 interface SharedUser {
@@ -107,7 +144,13 @@ const MOCK_SHARE_LINKS: ShareLink[] = [
   }
 ]
 
-export function ShareDashboard({ isOpen, onClose, dashboard, user }: ShareDashboardProps) {
+export function ShareDashboard({ isOpen, onClose, dashboard, user, isFeatureDisabled = false }: ShareDashboardProps) {
+  // Ref for scroll isolation - prevents scroll events from propagating to parent
+  // Validates: Requirements 2.3, 2.4
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  useScrollIsolation(scrollContainerRef)
+  
+  // State declarations must come before any conditional returns (React hooks rules)
   const [activeTab, setActiveTab] = useState('people')
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>(MOCK_SHARED_USERS)
   const [shareLinks, setShareLinks] = useState<ShareLink[]>(MOCK_SHARE_LINKS)
@@ -120,6 +163,84 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user }: ShareDashbo
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isPublic, setIsPublic] = useState(false)
   const [notificationEmail, setNotificationEmail] = useState(true)
+  const [copySuccess, setCopySuccess] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Safety checks to prevent crashes - Validates: Requirements 6.1
+  // These checks ensure the component renders without crashing when props are missing
+  if (!dashboard) {
+    console.warn('ShareDashboard: dashboard prop is undefined')
+    return null
+  }
+  
+  if (!user) {
+    console.warn('ShareDashboard: user prop is undefined')
+    return null
+  }
+
+  // Graceful fallback for incomplete share feature - Validates: Requirements 6.4
+  // Display "Feature coming soon" message if share is not fully implemented
+  if (isFeatureDisabled) {
+    return (
+      <Transition appear show={isOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={onClose}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900">
+                      <ShareIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </div>
+                  <Dialog.Title className="text-lg font-semibold text-center text-gray-900 dark:text-white">
+                    Share Feature Coming Soon
+                  </Dialog.Title>
+                  <p className="mt-2 text-sm text-center text-gray-500 dark:text-gray-400">
+                    We're working on bringing you powerful sharing capabilities. 
+                    This feature will allow you to share dashboards with team members and external collaborators.
+                  </p>
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Got it, thanks!
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+    )
+  }
+
+  // Safe access to dashboard properties with fallbacks
+  const dashboardName = dashboard?.name || 'My Dashboard'
+  const dashboardId = dashboard?.id || 'default'
 
   const handleInviteUser = () => {
     if (!newUserEmail.trim()) return
@@ -154,7 +275,7 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user }: ShareDashbo
     const newLink: ShareLink = {
       id: `link-${Date.now()}`,
       name: linkName,
-      url: `https://app.optibid.com/share/dashboard-${dashboard?.id || '123'}?token=${Math.random().toString(36).substr(2, 9)}`,
+      url: `https://app.optibid.com/share/dashboard-${dashboardId}?token=${Math.random().toString(36).substr(2, 9)}`,
       permission: linkPermission,
       expiresAt: linkExpiration === 'never' ? undefined : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       password: linkPassword || undefined,
@@ -175,9 +296,17 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user }: ShareDashbo
     ))
   }
 
-  const handleCopyLink = (url: string) => {
-    navigator.clipboard.writeText(url)
-    // In a real app, you might show a toast notification
+  const handleCopyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopySuccess(url)
+      // Clear success message after 2 seconds
+      setTimeout(() => setCopySuccess(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy link:', err)
+      setError('Failed to copy link to clipboard')
+      setTimeout(() => setError(null), 3000)
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -258,7 +387,7 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user }: ShareDashbo
                         Share Dashboard
                       </Dialog.Title>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {dashboard?.name || 'My Dashboard'} - Control access and permissions
+                        {dashboardName} - Control access and permissions
                       </p>
                     </div>
                   </div>
@@ -306,8 +435,9 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user }: ShareDashbo
                   </Tab.Group>
                 </div>
 
-                {/* Tab Content */}
-                <div className="h-96 overflow-hidden">
+                {/* Tab Content - with scroll isolation to prevent state mutations */}
+                {/* Validates: Requirements 2.3, 2.4 */}
+                <div ref={scrollContainerRef} className="h-96 overflow-hidden">
                   <Tab.Panels>
                     {/* People Tab */}
                     <Tab.Panel className="h-full flex flex-col">

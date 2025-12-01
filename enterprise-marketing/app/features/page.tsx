@@ -1,29 +1,20 @@
-import { Metadata } from 'next'
-import { FeaturesPageContent } from '@/components/sections/FeaturesPageContent'
-import { Navigation } from '@/components/layout/Navigation'
-import { Footer } from '@/components/layout/Footer'
-import { CookieBanner } from '@/components/ui/CookieBanner'
+import { Metadata } from 'next';
+import { Navigation } from '@/components/layout/Navigation';
+import { Footer } from '@/components/layout/Footer';
+import FeaturesPageContent from '@/components/sections/FeaturesPageContent';
 
 export const metadata: Metadata = {
-  title: 'Features | OptiBid Energy - Advanced Energy Trading Platform Features',
-  description: 'Discover powerful features including Visual Knowledge Graphs, AI-powered insights, real-time collaboration, and advanced analytics for energy trading professionals.',
-  keywords: 'energy trading features, AI energy analytics, visual knowledge graphs, real-time collaboration, energy data visualization',
-}
+  title: 'Features | OptiBid Energy - Advanced Energy Trading Platform',
+  description: 'Explore OptiBid Energy features including AI-powered forecasting, real-time analytics, quantum computing, blockchain integration, and enterprise-grade security.',
+  keywords: 'energy trading features, AI forecasting, real-time analytics, quantum computing, blockchain energy',
+};
 
 export default function FeaturesPage() {
   return (
-    <main id="main-content" className="relative min-h-screen">
-      {/* Navigation */}
+    <main className="relative min-h-screen">
       <Navigation />
-      
-      {/* Features Page Content */}
       <FeaturesPageContent />
-      
-      {/* Footer */}
       <Footer />
-      
-      {/* Cookie Banner */}
-      <CookieBanner />
     </main>
-  )
+  );
 }

@@ -37,10 +37,6 @@ async def market_data_websocket(
         token: Optional JWT token for user authentication
     """
     
-    # Initialize storage backend if not already set
-    if manager.storage_backend is None:
-        manager.set_storage_backend(use_redis=redis_cache.is_connected)
-    
     # Validate market zone
     valid_zones = ['pjm', 'caiso', 'ercot', 'nyiso', 'miso', 'spp']
     if market_zone.lower() not in valid_zones:
@@ -81,10 +77,6 @@ async def prices_websocket(
         token: Optional JWT token for user authentication
     """
     
-    # Initialize storage backend if not already set
-    if manager.storage_backend is None:
-        manager.set_storage_backend(use_redis=redis_cache.is_connected)
-    
     # Parse market zones
     if zones:
         requested_zones = [zone.strip().lower() for zone in zones.split(',')]
@@ -117,14 +109,12 @@ async def prices_websocket(
         for zone in requested_zones:
             await manager.connect(websocket, zone, user_id)
         
-        # Send initial data for all zones using storage backend
+        # Send initial data for all zones
         initial_data = {}
-        storage = manager.storage_backend
-        if storage:
-            for zone in requested_zones:
-                latest_price = await storage.get_latest_price(zone)
-                if latest_price:
-                    initial_data[zone] = latest_price
+        for zone in requested_zones:
+            latest_price = await redis_cache.get_latest_price(zone)
+            if latest_price:
+                initial_data[zone] = latest_price
         
         await websocket.send_text(f"""
         {{
@@ -163,33 +153,6 @@ async def get_websocket_stats():
     except Exception as e:
         logger.error(f"Failed to get WebSocket stats: {e}")
         raise HTTPException(status_code=500, detail="Failed to get connection statistics")
-
-
-@router.get("/ws/health")
-async def get_websocket_health():
-    """Get WebSocket service health information"""
-    try:
-        stats = manager.get_statistics()
-        
-        # Determine health status
-        active_connections = stats.get('active_connections', 0)
-        error_rate = 0
-        if stats.get('total_messages_sent', 0) > 0:
-            error_rate = stats.get('connection_errors', 0) / stats.get('total_messages_sent', 1)
-        
-        is_healthy = error_rate < 0.1  # Less than 10% error rate
-        
-        return {
-            'status': 'healthy' if is_healthy else 'degraded',
-            'storage_backend': stats.get('storage_backend'),
-            'active_connections': active_connections,
-            'statistics': stats,
-            'error_rate': round(error_rate * 100, 2),
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Failed to get WebSocket health: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get health information")
 
 
 @router.post("/ws/broadcast/price")
@@ -290,18 +253,14 @@ async def simulate_price_update(
         # Broadcast to WebSocket clients
         await WebSocketHandler.broadcast_price_update(market_zone.lower(), new_price, volume, timestamp)
         
-        # Cache the latest price using storage backend
-        if manager.storage_backend:
-            try:
-                await manager.storage_backend.cache_latest_price(market_zone.lower(), {
-                    'price': new_price,
-                    'volume': volume,
-                    'timestamp': timestamp.isoformat(),
-                    'base_price': base_price,
-                    'volatility': volatility
-                })
-            except Exception as e:
-                logger.warning(f"Failed to cache simulated price: {e}")
+        # Cache the latest price
+        await redis_cache.cache_latest_price(market_zone.lower(), {
+            'price': new_price,
+            'volume': volume,
+            'timestamp': timestamp.isoformat(),
+            'base_price': base_price,
+            'volatility': volatility
+        })
         
         return {
             "success": True,

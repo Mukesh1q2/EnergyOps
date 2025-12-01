@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { QuantumComputer, QuantumSimulator, QuantumCircuit, QuantumGate } from 'quantum-computing-js';
+// import { getServerSession } from 'next-auth/next';
+// import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+// Mock quantum computing types (quantum-computing-js package doesn't exist)
+type QuantumComputer = any;
+type QuantumSimulator = any;
+type QuantumCircuit = any;
+type QuantumGate = any;
 
 interface QuantumComputingRequest {
   operation: 'create_circuit' | 'execute_circuit' | 'simulate' | 'optimize' | 'benchmark' | 'deploy';

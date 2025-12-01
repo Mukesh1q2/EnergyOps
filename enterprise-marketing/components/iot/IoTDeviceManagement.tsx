@@ -6,7 +6,7 @@ import {
   WifiIcon,
   SignalIcon,
   CpuChipIcon,
-  BatteryIcon,
+  Battery100Icon,
   ChartBarIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
@@ -115,7 +115,7 @@ const IoTDeviceManagement: React.FC = () => {
       case 'gateway': return <ServerIcon className="h-6 w-6" />;
       case 'edge-node': return <CpuChipIcon className="h-6 w-6" />;
       case 'smart-meter': return <ChartBarIcon className="h-6 w-6" />;
-      case 'battery-storage': return <BatteryIcon className="h-6 w-6" />;
+      case 'battery-storage': return <Battery100Icon className="h-6 w-6" />;
       default: return <DevicePhoneMobileIcon className="h-6 w-6" />;
     }
   };

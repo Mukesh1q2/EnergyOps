@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuthToken } from '../../../../../lib/auth'
+import { verifyAuthToken } from '@/lib/auth'
 
 // Mock layout storage
 const LAYOUTS_DB: { [key: string]: any } = {}

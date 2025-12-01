@@ -1,3 +1,5 @@
+'use client';
+
 import { SectionWrapper } from '@/components/ui/SectionWrapper'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

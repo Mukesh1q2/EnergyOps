@@ -12,14 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .base import CRUDBase
-from ..models import MarketData
+from ..models import MarketPrice
 from ..schemas import MarketDataCreate, MarketDataUpdate, MarketDataResponse
 
 
-class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
+class CRUDMarketData(CRUDBase[MarketPrice, MarketDataCreate, MarketDataUpdate]):
     """CRUD operations for Market Data"""
     
-    async def create_market_data(self, db: AsyncSession, *, obj_in: MarketDataCreate, organization_id: Optional[UUID] = None) -> MarketData:
+    async def create_market_data(self, db: AsyncSession, *, obj_in: MarketDataCreate, organization_id: Optional[UUID] = None) -> MarketPrice:
         """Create new market data record"""
         return await self.create(db, obj_in=obj_in)
     
@@ -30,30 +30,30 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         limit: int = 100
-    ) -> List[MarketData]:
+    ) -> List[MarketPrice]:
         """Get market data by market zone and time range"""
         
-        query = select(MarketData).where(
-            MarketData.market_zone == market_zone.lower()
+        query = select(MarketPrice).where(
+            MarketPrice.market_zone == market_zone.lower()
         )
         
         if start_time:
-            query = query.where(MarketData.timestamp >= start_time)
+            query = query.where(MarketPrice.timestamp >= start_time)
         
         if end_time:
-            query = query.where(MarketData.timestamp <= end_time)
+            query = query.where(MarketPrice.timestamp <= end_time)
         
-        query = query.order_by(desc(MarketData.timestamp)).limit(limit)
+        query = query.order_by(desc(MarketPrice.timestamp)).limit(limit)
         
         result = await db.execute(query)
         return result.scalars().all()
     
-    async def get_latest_by_market_zone(self, db: AsyncSession, market_zone: str) -> Optional[MarketData]:
+    async def get_latest_by_market_zone(self, db: AsyncSession, market_zone: str) -> Optional[MarketPrice]:
         """Get the most recent market data for a market zone"""
         
-        query = select(MarketData).where(
-            MarketData.market_zone == market_zone.lower()
-        ).order_by(desc(MarketData.timestamp)).limit(1)
+        query = select(MarketPrice).where(
+            MarketPrice.market_zone == market_zone.lower()
+        ).order_by(desc(MarketPrice.timestamp)).limit(1)
         
         result = await db.execute(query)
         return result.scalar_one_or_none()
@@ -64,7 +64,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         market_zone: str,
         hours: int = 24,
         limit: int = 1000
-    ) -> List[MarketData]:
+    ) -> List[MarketPrice]:
         """Get price history for a market zone over specified hours"""
         
         end_time = datetime.utcnow()
@@ -83,11 +83,11 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
     ) -> Optional[float]:
         """Get average price for a market zone over time period"""
         
-        query = select(func.avg(MarketData.price)).where(
+        query = select(func.avg(MarketPrice.price)).where(
             and_(
-                MarketData.market_zone == market_zone.lower(),
-                MarketData.timestamp >= start_time,
-                MarketData.timestamp <= end_time
+                MarketPrice.market_zone == market_zone.lower(),
+                MarketPrice.timestamp >= start_time,
+                MarketPrice.timestamp <= end_time
             )
         )
         
@@ -108,16 +108,16 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         start_time = end_time - timedelta(hours=hours)
         
         query = select(
-            func.avg(MarketData.price),
-            func.min(MarketData.price),
-            func.max(MarketData.price),
-            func.stddev(MarketData.price),
-            func.count(MarketData.id)
+            func.avg(MarketPrice.price),
+            func.min(MarketPrice.price),
+            func.max(MarketPrice.price),
+            func.stddev(MarketPrice.price),
+            func.count(MarketPrice.id)
         ).where(
             and_(
-                MarketData.market_zone == market_zone.lower(),
-                MarketData.timestamp >= start_time,
-                MarketData.timestamp <= end_time
+                MarketPrice.market_zone == market_zone.lower(),
+                MarketPrice.timestamp >= start_time,
+                MarketPrice.timestamp <= end_time
             )
         )
         
@@ -157,15 +157,15 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         start_time = end_time - timedelta(hours=hours)
         
         query = select(
-            func.sum(MarketData.volume),
-            func.avg(MarketData.volume),
-            func.min(MarketData.volume),
-            func.max(MarketData.volume)
+            func.sum(MarketPrice.volume),
+            func.avg(MarketPrice.volume),
+            func.min(MarketPrice.volume),
+            func.max(MarketPrice.volume)
         ).where(
             and_(
-                MarketData.market_zone == market_zone.lower(),
-                MarketData.timestamp >= start_time,
-                MarketData.timestamp <= end_time
+                MarketPrice.market_zone == market_zone.lower(),
+                MarketPrice.timestamp >= start_time,
+                MarketPrice.timestamp <= end_time
             )
         )
         
@@ -233,12 +233,12 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         
         cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
         
-        query = MarketData.timestamp < cutoff_date
+        query = MarketPrice.timestamp < cutoff_date
         deleted_count = await self.delete_where(db, query)
         
         return deleted_count
     
-    async def bulk_create_market_data(self, db: AsyncSession, data_list: List[MarketDataCreate]) -> List[MarketData]:
+    async def bulk_create_market_data(self, db: AsyncSession, data_list: List[MarketDataCreate]) -> List[MarketPrice]:
         """Create multiple market data records in bulk"""
         
         created_records = []
@@ -253,8 +253,8 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
     async def get_market_zones_summary(self, db: AsyncSession) -> List[Dict[str, Any]]:
         """Get summary for all market zones"""
         
-        query = select(MarketData.market_zone, func.max(MarketData.timestamp), func.count(MarketData.id))
-        query = query.group_by(MarketData.market_zone)
+        query = select(MarketPrice.market_zone, func.max(MarketPrice.timestamp), func.count(MarketPrice.id))
+        query = query.group_by(MarketPrice.market_zone)
         
         result = await db.execute(query)
         rows = result.all()
@@ -281,31 +281,31 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         limit: int = 1000,
         sort_by: str = "timestamp",
         sort_order: str = "desc"
-    ) -> List[MarketData]:
+    ) -> List[MarketPrice]:
         """Get market data with comprehensive filters"""
         
-        query = select(MarketData)
+        query = select(MarketPrice)
         
         if market_zone:
-            query = query.where(MarketData.market_zone == market_zone.lower())
+            query = query.where(MarketPrice.market_zone == market_zone.lower())
         
         if price_type:
-            query = query.where(MarketData.price_type == price_type)
+            query = query.where(MarketPrice.price_type == price_type)
         
         if location:
-            query = query.where(MarketData.location.ilike(f"%{location}%"))
+            query = query.where(MarketPrice.location.ilike(f"%{location}%"))
         
         if start_time:
-            query = query.where(MarketData.timestamp >= start_time)
+            query = query.where(MarketPrice.timestamp >= start_time)
         
         if end_time:
-            query = query.where(MarketData.timestamp <= end_time)
+            query = query.where(MarketPrice.timestamp <= end_time)
         
         # Apply sorting
         if sort_order.lower() == "asc":
-            query = query.order_by(getattr(MarketData, sort_by).asc())
+            query = query.order_by(getattr(MarketPrice, sort_by).asc())
         else:
-            query = query.order_by(getattr(MarketData, sort_by).desc())
+            query = query.order_by(getattr(MarketPrice, sort_by).desc())
         
         query = query.limit(limit)
         
@@ -322,11 +322,11 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         expected_records = int(hours * 12)  # 12 records per hour (every 5 minutes)
         
         # Get actual records
-        actual_query = select(func.count(MarketData.id)).where(
+        actual_query = select(func.count(MarketPrice.id)).where(
             and_(
-                MarketData.market_zone == market_zone.lower(),
-                MarketData.timestamp >= start_time,
-                MarketData.timestamp <= end_time
+                MarketPrice.market_zone == market_zone.lower(),
+                MarketPrice.timestamp >= start_time,
+                MarketPrice.timestamp <= end_time
             )
         )
         
@@ -338,16 +338,16 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         
         # Get price range and validation
         price_query = select(
-            func.min(MarketData.price),
-            func.max(MarketData.price),
-            func.avg(MarketData.price),
-            func.stddev(MarketData.price)
+            func.min(MarketPrice.price),
+            func.max(MarketPrice.price),
+            func.avg(MarketPrice.price),
+            func.stddev(MarketPrice.price)
         ).where(
             and_(
-                MarketData.market_zone == market_zone.lower(),
-                MarketData.timestamp >= start_time,
-                MarketData.timestamp <= end_time,
-                MarketData.price.isnot(None)
+                MarketPrice.market_zone == market_zone.lower(),
+                MarketPrice.timestamp >= start_time,
+                MarketPrice.timestamp <= end_time,
+                MarketPrice.price.isnot(None)
             )
         )
         
@@ -355,12 +355,12 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         price_stats = price_result.first()
         
         # Check for negative prices (anomaly)
-        negative_query = select(func.count(MarketData.id)).where(
+        negative_query = select(func.count(MarketPrice.id)).where(
             and_(
-                MarketData.market_zone == market_zone.lower(),
-                MarketData.timestamp >= start_time,
-                MarketData.timestamp <= end_time,
-                MarketData.price < 0
+                MarketPrice.market_zone == market_zone.lower(),
+                MarketPrice.timestamp >= start_time,
+                MarketPrice.timestamp <= end_time,
+                MarketPrice.price < 0
             )
         )
         
@@ -387,9 +387,4 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
 
 
 # Create CRUD instance
-market_data = CRUDMarketData(MarketData)
-
-
-# Create singleton instance
-from ..models import MarketData
-market_data_crud = CRUDMarketData(MarketData)
+market_data_crud = CRUDMarketData(MarketPrice)

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PostQuantumCrypto, HomomorphicEncryption, QuantumKeyDistribution } from 'post-quantum-crypto';
+// import { getServerSession } from 'next-auth/next';
+// import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+// Mock quantum crypto types (post-quantum-crypto package doesn't exist)
+type PostQuantumCrypto = any;
+type HomomorphicEncryption = any;
+type QuantumKeyDistribution = any;
 
 interface QuantumCryptographyRequest {
   operation: 'generate_keypair' | 'encrypt' | 'decrypt' | 'sign' | 'verify' | 'key_distribution' | 'homomorphic_compute' | 'migrate_classical';

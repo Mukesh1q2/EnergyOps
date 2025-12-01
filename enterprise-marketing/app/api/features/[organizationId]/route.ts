@@ -169,61 +169,6 @@ export async function POST(
   }
 }
 
-// GET /api/features/[organizationId]/categories - Get features by category
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { organizationId: string } }
-) {
-  try {
-    const { organizationId } = params
-    const { searchParams } = new URL(request.url)
-    const category = searchParams.get('category')
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'Organization ID is required' },
-        { status: 400 }
-      )
-    }
-
-    // Get features by category
-    let features
-    if (category) {
-      features = await featureFlagService.getFeatureDefinitionsByCategory(category as any)
-    } else {
-      features = await featureFlagService.getAllFeatures()
-    }
-
-    // Get organization settings for each feature
-    const featuresWithSettings = await Promise.all(
-      features.map(async (feature) => {
-        const isEnabled = await featureFlagService.isFeatureEnabled(organizationId, feature.id)
-        const config = await featureFlagService.getFeatureConfiguration(organizationId, feature.id)
-        
-        return {
-          ...feature,
-          is_enabled: isEnabled,
-          configuration: config
-        }
-      })
-    )
-
-    return NextResponse.json({
-      organizationId,
-      category: category || 'all',
-      features: featuresWithSettings,
-      total: featuresWithSettings.length
-    })
-
-  } catch (error) {
-    console.error('Error fetching features by category:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch features by category' },
-      { status: 500 }
-    )
-  }
-}
-
 // PUT /api/features/[organizationId]/preferences - Update user preferences
 export async function PUT(
   request: NextRequest,

@@ -90,15 +90,18 @@ def get_db_sync() -> Generator[Session, None, None]:
 
 async def init_db():
     """Initialize database tables and run migrations"""
+    from sqlalchemy import text
     try:
         # Test database connection
-        from sqlalchemy import text
         async with async_engine.begin() as conn:
             result = await conn.execute(text("SELECT 1"))
             logger.info("Database connection established")
         
         # Import all models to ensure they're registered
-        from app import models
+        from app.models import (
+            User, Organization, Asset, Bid, MarketPrice,
+            Dataset, Dashboard, MLModel, ComplianceRule
+        )
         
         # Create all tables
         async with async_engine.begin() as conn:
@@ -107,15 +110,6 @@ async def init_db():
         
         # Initialize extensions (PostGIS, TimescaleDB)
         await init_extensions()
-        
-        # Run automatic migrations if enabled (development only)
-        if settings.ENVIRONMENT == "development":
-            try:
-                from app.utils.migration_runner import migration_runner
-                async with AsyncSessionLocal() as session:
-                    await migration_runner.run_migrations_on_startup(session)
-            except Exception as e:
-                logger.warning(f"Automatic migration check failed: {e}")
         
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")

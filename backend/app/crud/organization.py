@@ -5,15 +5,15 @@ CRUD operations for Organization model
 
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func, text
 from fastapi import HTTPException, status
 
 from app.models import Organization
-from app.schemas import OrganizationCreate, OrganizationUpdate
+from app.schemas.organization import OrganizationCreate, OrganizationUpdate
 from app.crud.base import CRUDBase
-from app.core.password import get_password_hash
+from app.core.security import SecurityManager
 
 class CRUDOrganization(CRUDBase[Organization, OrganizationCreate, OrganizationUpdate]):
     """CRUD operations for Organization"""
@@ -107,7 +107,7 @@ class CRUDOrganization(CRUDBase[Organization, OrganizationCreate, OrganizationUp
     
     async def get_organization_assets_count(self, db: AsyncSession, *, organization_id: UUID) -> int:
         """Get asset count for organization"""
-        from app.models.asset import Asset
+        from app.models import Asset
         
         result = await db.execute(
             select(func.count(Asset.id)).where(
@@ -123,7 +123,7 @@ class CRUDOrganization(CRUDBase[Organization, OrganizationCreate, OrganizationUp
         assets_count = await self.get_organization_assets_count(db, organization_id=organization_id)
         
         # Active assets
-        from app.models.asset import Asset
+        from app.models import Asset
         result = await db.execute(
             select(func.count(Asset.id)).where(
                 and_(
@@ -143,7 +143,7 @@ class CRUDOrganization(CRUDBase[Organization, OrganizationCreate, OrganizationUp
         total_capacity = result.scalar() or 0
         
         # Recent bids
-        from app.models.bid import Bid
+        from app.models import Bid
         from datetime import datetime, timedelta
         
         last_30_days = datetime.utcnow() - timedelta(days=30)
@@ -181,7 +181,7 @@ class CRUDOrganization(CRUDBase[Organization, OrganizationCreate, OrganizationUp
             accepted_bids_percentage = 0
         
         # Dashboards count
-        from app.models.dashboard import Dashboard
+        from app.models import Dashboard
         result = await db.execute(
             select(func.count(Dashboard.id)).where(
                 Dashboard.organization_id == organization_id
@@ -299,7 +299,7 @@ class CRUDOrganization(CRUDBase[Organization, OrganizationCreate, OrganizationUp
             current_usage["limit"] = tier_limits["max_assets"]
             
         elif resource_type == "dashboards":
-            from app.models.dashboard import Dashboard
+            from app.models import Dashboard
             result = await db.execute(
                 select(func.count(Dashboard.id)).where(
                     Dashboard.organization_id == organization_id

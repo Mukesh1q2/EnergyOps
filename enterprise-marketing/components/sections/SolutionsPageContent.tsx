@@ -8,7 +8,7 @@ import {
   BoltIcon, 
   CpuChipIcon,
   BuildingOfficeIcon,
-  BatteryIcon
+  Battery100Icon
 } from '@heroicons/react/24/outline'
 
 interface Solution {
@@ -120,7 +120,7 @@ const solutions: Solution[] = [
     id: 'storage',
     title: 'Energy Storage',
     subtitle: 'Battery Optimization & Management',
-    icon: BatteryIcon,
+    icon: Battery100Icon,
     description: 'Advanced energy storage optimization tools for battery systems, including charge/discharge scheduling and revenue optimization.',
     benefits: [
       'Battery state optimization',

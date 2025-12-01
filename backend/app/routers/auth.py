@@ -18,11 +18,10 @@ from pydantic import BaseModel, Field
 from app.core.database import get_db
 from app.core.config import get_settings, settings
 from app.core.security import SecurityManager, get_current_user
-from app.schemas import LoginRequest, Token, RefreshTokenRequest, PasswordChangeRequest
-from app.schemas import UserResponse, UserCreate
-from app.models import User
+from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest, PasswordChangeRequest
+from app.schemas.user import UserResponse, UserCreate
+from app.models import User, Organization
 from app.crud.user import user_crud
-from app.models import Organization
 from app.crud.organization import organization_crud
 from app.utils.logger import setup_logger
 
@@ -35,7 +34,7 @@ logger = setup_logger(__name__)
 settings = get_settings()
 security = HTTPBearer()
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 @router.post("/login", response_model=Token)
 async def login(
@@ -86,7 +85,7 @@ async def login(
         )
         
         # Create session record
-        from app.models import UserSession
+        from app.models.user import UserSession
         session = UserSession(
             user_id=user.id,
             session_token=access_token,
@@ -220,7 +219,7 @@ async def refresh_token(
         )
         
         # Update session
-        from app.models import UserSession
+        from app.models.user import UserSession
         session = await db.execute(
             select(UserSession).where(
                 UserSession.refresh_token == refresh_data.refresh_token
@@ -260,7 +259,7 @@ async def logout(
     """
     try:
         # Remove session from database
-        from app.models import UserSession
+        from app.models.user import UserSession
         
         auth_header = request.headers.get("authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -694,7 +693,7 @@ async def refresh_token_enhanced(request: RefreshTokenRequest, req: Request):
         )
         
         # Update session with security info
-        from app.models import UserSession
+        from app.models.user import UserSession
         session_result = await db.execute(
             select(UserSession).where(
                 UserSession.refresh_token == request.refresh_token
@@ -760,7 +759,7 @@ async def get_security_logs(current_user: User = Depends(get_current_user), db: 
 async def get_active_sessions(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Get user's active sessions"""
     try:
-        from app.models import UserSession
+        from app.models.user import UserSession
         
         # Get user's active sessions
         sessions_result = await db.execute(
@@ -789,7 +788,7 @@ async def get_active_sessions(current_user: User = Depends(get_current_user), db
 async def revoke_session(session_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Revoke specific session"""
     try:
-        from app.models import UserSession
+        from app.models.user import UserSession
         
         # Get session
         session_result = await db.execute(
@@ -949,7 +948,7 @@ async def login_enhanced(login_data: LoginRequest, request: Request, db: AsyncSe
             )
             
             # Create session record
-            from app.models import UserSession
+            from app.models.user import UserSession
             session = UserSession(
                 user_id=user.id,
                 session_token=access_token,

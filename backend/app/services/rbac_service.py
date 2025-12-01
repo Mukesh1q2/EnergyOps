@@ -568,12 +568,11 @@ class RBACService:
             is_system_role=False
         )
 
-
-# Create singleton instance
+# Singleton instance
 _rbac_service = None
 
 def get_rbac_service() -> RBACService:
-    """Get RBAC service singleton"""
+    """Get or create RBAC service singleton"""
     global _rbac_service
     if _rbac_service is None:
         _rbac_service = RBACService()

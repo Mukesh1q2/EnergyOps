@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -19,12 +19,49 @@ import {
 import { Dialog, Transition, Tab } from '@headlessui/react'
 import { Fragment } from 'react'
 import { clsx } from 'clsx'
+import toast from 'react-hot-toast'
+
+/**
+ * Hook to isolate scroll events within a container, preventing propagation
+ * to parent components. This prevents modal scroll from triggering
+ * unintended state mutations in the dashboard.
+ * Validates: Requirements 2.3, 2.4
+ */
+function useScrollIsolation(ref: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    const container = ref.current
+    if (!container) return
+
+    const handleScroll = (e: Event) => {
+      e.stopPropagation()
+    }
+
+    const handleWheel = (e: WheelEvent) => {
+      e.stopPropagation()
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.stopPropagation()
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    container.addEventListener('wheel', handleWheel, { passive: true })
+    container.addEventListener('touchmove', handleTouchMove, { passive: true })
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('wheel', handleWheel)
+      container.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [ref])
+}
 
 interface DashboardSettingsProps {
   isOpen: boolean
   onClose: () => void
   dashboardData: any
   onUpdate: (updates: any) => void
+  onSettingsSaved?: () => void  // Callback to notify parent of successful save
 }
 
 const THEMES = [
@@ -66,33 +103,47 @@ const AUTO_REFRESH_INTERVALS = [
   { id: 'off', name: 'Never' }
 ]
 
-export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: DashboardSettingsProps) {
+export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate, onSettingsSaved }: DashboardSettingsProps) {
+  // Ref for scroll isolation - prevents scroll events from propagating to parent
+  // Validates: Requirements 2.3, 2.4
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  useScrollIsolation(scrollContainerRef)
+  
+  // State for tracking save operation
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Store previous valid state for rollback on error
+  // Validates: Requirements 4.6
+  const previousSettingsRef = useRef<any>(null)
+  
   const [settings, setSettings] = useState({
     name: dashboardData?.name || 'My Dashboard',
     description: dashboardData?.description || '',
     theme: dashboardData?.theme || 'light',
-    language: 'en',
-    timezone: 'America/New_York',
-    currency: 'USD',
-    autoRefresh: '5m',
-    notifications: {
+    language: dashboardData?.language || 'en',
+    timezone: dashboardData?.timezone || 'America/New_York',
+    currency: dashboardData?.currency || 'USD',
+    autoRefresh: dashboardData?.autoRefresh || '5m',
+    notifications: dashboardData?.notifications || {
       email: true,
       push: false,
       sound: true,
       desktop: true
     },
-    privacy: {
+    privacy: dashboardData?.privacy || {
       shareable: false,
       publicView: false,
       teamCollaboration: true
     },
-    performance: {
+    performance: dashboardData?.performance || {
       lazyLoading: true,
       animationLevel: 'medium',
       dataCompression: true,
       cacheTimeout: '1h'
     },
-    accessibility: {
+    accessibility: dashboardData?.accessibility || {
       highContrast: false,
       reducedMotion: false,
       fontSize: 'medium',
@@ -101,6 +152,117 @@ export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: 
   })
 
   const [activeTab, setActiveTab] = useState('general')
+  
+  /**
+   * Fetch fresh settings when modal opens
+   * Validates: Requirements 4.5 - Display saved values in form fields
+   */
+  const loadSettings = useCallback(async () => {
+    setIsLoading(true)
+    setSaveError(null)
+    
+    try {
+      const response = await fetch('/api/dashboard/user-config', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('optibid_access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.status === 401) {
+        // Handle authentication failure
+        window.location.href = '/login'
+        return
+      }
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data) {
+          const loadedSettings = {
+            name: result.data.name || 'My Dashboard',
+            description: result.data.description || '',
+            theme: result.data.theme || 'light',
+            language: result.data.language || 'en',
+            timezone: result.data.timezone || 'America/New_York',
+            currency: result.data.currency || 'USD',
+            autoRefresh: result.data.autoRefresh || '5m',
+            notifications: result.data.notifications || {
+              email: true,
+              push: false,
+              sound: true,
+              desktop: true
+            },
+            privacy: result.data.privacy || {
+              shareable: false,
+              publicView: false,
+              teamCollaboration: true
+            },
+            performance: result.data.performance || {
+              lazyLoading: true,
+              animationLevel: 'medium',
+              dataCompression: true,
+              cacheTimeout: '1h'
+            },
+            accessibility: result.data.accessibility || {
+              highContrast: false,
+              reducedMotion: false,
+              fontSize: 'medium',
+              screenReader: false
+            }
+          }
+          setSettings(loadedSettings)
+          previousSettingsRef.current = loadedSettings
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+      // Use dashboardData as fallback
+      const fallbackSettings = {
+        name: dashboardData?.name || 'My Dashboard',
+        description: dashboardData?.description || '',
+        theme: dashboardData?.theme || 'light',
+        language: dashboardData?.language || 'en',
+        timezone: dashboardData?.timezone || 'America/New_York',
+        currency: dashboardData?.currency || 'USD',
+        autoRefresh: dashboardData?.autoRefresh || '5m',
+        notifications: dashboardData?.notifications || {
+          email: true,
+          push: false,
+          sound: true,
+          desktop: true
+        },
+        privacy: dashboardData?.privacy || {
+          shareable: false,
+          publicView: false,
+          teamCollaboration: true
+        },
+        performance: dashboardData?.performance || {
+          lazyLoading: true,
+          animationLevel: 'medium',
+          dataCompression: true,
+          cacheTimeout: '1h'
+        },
+        accessibility: dashboardData?.accessibility || {
+          highContrast: false,
+          reducedMotion: false,
+          fontSize: 'medium',
+          screenReader: false
+        }
+      }
+      setSettings(fallbackSettings)
+      previousSettingsRef.current = fallbackSettings
+    } finally {
+      setIsLoading(false)
+    }
+  }, [dashboardData])
+  
+  // Load fresh settings when modal opens
+  // Validates: Requirements 4.5
+  useEffect(() => {
+    if (isOpen) {
+      loadSettings()
+    }
+  }, [isOpen, loadSettings])
 
   const handleSettingChange = (path: string, value: any) => {
     setSettings(prev => {
@@ -118,16 +280,128 @@ export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: 
     })
   }
 
-  const handleSave = () => {
-    onUpdate(settings)
-    onClose()
+  /**
+   * Save settings to the backend API
+   * Validates: Requirements 4.1, 4.2, 4.3, 4.6
+   * - Calls PUT /api/dashboard/user-config endpoint
+   * - Includes all settings fields
+   * - Adds proper Authorization header
+   * - Handles errors and maintains previous valid state on failure
+   */
+  const handleSave = async () => {
+    setIsSaving(true)
+    setSaveError(null)
+    
+    // Store current settings for potential rollback
+    const settingsBeforeSave = { ...settings }
+    
+    try {
+      // Make PUT request to /api/dashboard/user-config per Requirements 4.3
+      const response = await fetch('/api/dashboard/user-config', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('optibid_access_token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: settings.name,
+          description: settings.description,
+          theme: settings.theme,
+          language: settings.language,
+          timezone: settings.timezone,
+          currency: settings.currency,
+          autoRefresh: settings.autoRefresh,
+          notifications: settings.notifications,
+          privacy: settings.privacy,
+          performance: settings.performance,
+          accessibility: settings.accessibility,
+          // Preserve existing widgets and layout from dashboardData
+          widgets: dashboardData?.widgets,
+          layout: dashboardData?.layout
+        })
+      })
+      
+      // Handle authentication failure - redirect to login
+      // Validates: Requirements 7.3
+      if (response.status === 401) {
+        window.location.href = '/login'
+        return
+      }
+      
+      if (response.ok) {
+        const result = await response.json()
+        
+        if (result.success) {
+          // Update parent component with new settings
+          // Validates: Requirements 4.1, 4.2, 4.4
+          onUpdate({
+            ...dashboardData,
+            ...settings
+          })
+          
+          // Store as previous valid state
+          previousSettingsRef.current = settings
+          
+          // Notify parent of successful save
+          onSettingsSaved?.()
+          
+          // Show success message
+          toast.success('Settings saved successfully!')
+          
+          onClose()
+        } else {
+          // API returned success: false
+          const errorMessage = result.error || result.message || 'Failed to save settings'
+          setSaveError(errorMessage)
+          toast.error(errorMessage)
+        }
+      } else {
+        // Handle API error responses
+        // Validates: Requirements 4.6, 7.1
+        let errorMessage = 'Failed to save settings'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          errorMessage = `Failed to save settings: ${response.statusText || response.status}`
+        }
+        
+        setSaveError(errorMessage)
+        toast.error(errorMessage)
+        
+        // Rollback to previous valid state on error
+        // Validates: Requirements 4.6
+        if (previousSettingsRef.current) {
+          setSettings(previousSettingsRef.current)
+        }
+      }
+    } catch (error) {
+      // Handle network/unexpected errors
+      // Validates: Requirements 4.6, 7.1
+      console.error('Failed to save settings:', error)
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to save settings. Please try again.'
+      
+      setSaveError(errorMessage)
+      toast.error(errorMessage)
+      
+      // Rollback to previous valid state on error
+      if (previousSettingsRef.current) {
+        setSettings(previousSettingsRef.current)
+      }
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleReset = () => {
-    setSettings({
-      name: dashboardData?.name || 'My Dashboard',
-      description: dashboardData?.description || '',
-      theme: dashboardData?.theme || 'light',
+    // Reset to default values
+    const defaultSettings = {
+      name: 'My Dashboard',
+      description: '',
+      theme: 'light',
       language: 'en',
       timezone: 'America/New_York',
       currency: 'USD',
@@ -155,7 +429,10 @@ export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: 
         fontSize: 'medium',
         screenReader: false
       }
-    })
+    }
+    setSettings(defaultSettings)
+    setSaveError(null)
+    toast.success('Settings reset to defaults')
   }
 
   const tabs = [
@@ -223,11 +500,13 @@ export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: 
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
+                          disabled={isLoading}
                           className={clsx(
                             'w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                             activeTab === tab.id
                               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700',
+                            isLoading && 'opacity-50 cursor-not-allowed'
                           )}
                         >
                           <tab.icon className="h-5 w-5" />
@@ -237,8 +516,23 @@ export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: 
                     </nav>
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 overflow-y-auto p-6">
+                  {/* Content - with scroll isolation to prevent state mutations */}
+                  {/* Validates: Requirements 2.3, 2.4 */}
+                  <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6">
+                    {/* Loading indicator - Validates: Requirements 4.5 */}
+                    {isLoading && (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Loading settings...</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!isLoading && (
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={activeTab}
@@ -610,30 +904,55 @@ export function DashboardSettings({ isOpen, onClose, dashboardData, onUpdate }: 
                         )}
                       </motion.div>
                     </AnimatePresence>
+                    )}
                   </div>
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
-                  >
-                    Reset to Defaults
-                  </button>
-                  <div className="flex space-x-3">
+                <div className="flex flex-col border-t border-gray-200 dark:border-gray-700">
+                  {/* Error message display - Validates: Requirements 4.6 */}
+                  {saveError && (
+                    <div className="px-6 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {saveError}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between p-6">
                     <button
-                      onClick={onClose}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                      onClick={handleReset}
+                      disabled={isSaving || isLoading}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Cancel
+                      Reset to Defaults
                     </button>
-                    <button
-                      onClick={handleSave}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Save Changes
-                    </button>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={onClose}
+                        disabled={isSaving}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={isSaving || isLoading}
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                        {isSaving ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Saving...
+                          </>
+                        ) : (
+                          'Save Changes'
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Dialog.Panel>

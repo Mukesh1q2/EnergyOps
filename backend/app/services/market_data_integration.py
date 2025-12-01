@@ -442,18 +442,10 @@ class MarketDataIntegrationService:
             MarketZone.CAISO: CAISOConnector(),
             MarketZone.ERCOT: ERCOTConnector()
         }
-        # Only initialize Kafka if enabled
-        try:
-            from app.core.config import settings
-            if getattr(settings, 'ENABLE_KAFKA', False):
-                self.kafka_producer = KafkaProducer(
-                    bootstrap_servers=bootstrap_servers,
-                    value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8')
-                )
-            else:
-                self.kafka_producer = None
-        except:
-            self.kafka_producer = None
+        self.kafka_producer = KafkaProducer(
+            bootstrap_servers=bootstrap_servers,
+            value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8')
+        )
         self.credentials = {}
         
     async def authenticate_all_sources(self, credentials: Dict[MarketZone, Dict[str, str]]) -> Dict[MarketZone, bool]:
@@ -527,8 +519,7 @@ class MarketDataIntegrationService:
                 'load_forecast': price.load_forecast
             }
             
-            if self.kafka_producer:
-                self.kafka_producer.send(topic, value=message)
+            self.kafka_producer.send(topic, value=message)
             logger.debug(f"Published {market_zone} price to {topic}")
             
         except KafkaError as e:

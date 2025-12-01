@@ -10,8 +10,8 @@ from sqlalchemy import select, and_, or_, func
 from fastapi import HTTPException, status
 
 from app.models import User
-from app.schemas import UserCreate, UserUpdate, UserResponse
-from app.core.password import verify_password, get_password_hash
+from app.schemas.user import UserCreate, UserUpdate, UserResponse
+from app.core.security import SecurityManager
 from app.crud.base import CRUDBase
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
@@ -31,7 +31,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if not user:
             return None
         
-        if not verify_password(password, user.password_hash):
+        if not SecurityManager.verify_password(password, user.password_hash):
             return None
         
         if user.status != "active":
@@ -54,7 +54,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         
         # Hash password
         obj_in_data = obj_in.dict()
-        obj_in_data["password_hash"] = get_password_hash(obj_in.password)
+        obj_in_data["password_hash"] = SecurityManager.get_password_hash(obj_in.password)
         
         # Remove password field from data
         obj_in_data.pop("password", None)
@@ -71,14 +71,14 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     ) -> User:
         """Update user password with current password verification"""
         # Verify current password
-        if not verify_password(current_password, db_obj.password_hash):
+        if not SecurityManager.verify_password(current_password, db_obj.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current password is incorrect"
             )
         
         # Hash new password
-        db_obj.password_hash = get_password_hash(new_password)
+        db_obj.password_hash = SecurityManager.get_password_hash(new_password)
         
         await db.commit()
         await db.refresh(db_obj)
@@ -93,7 +93,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
                 detail="User not found"
             )
         
-        db_obj.password_hash = get_password_hash(new_password)
+        db_obj.password_hash = SecurityManager.get_password_hash(new_password)
         await db.commit()
         await db.refresh(db_obj)
         return db_obj

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuthToken } from '../../../../../lib/auth'
+import { verifyAuthToken } from '@/lib/auth'
 
 // Mock widgets database
 const WIDGETS_DB: { [key: string]: any } = {}
@@ -74,8 +74,11 @@ export async function GET(request: NextRequest) {
     )
 
     return NextResponse.json({
-      widgets: userWidgets,
-      total: userWidgets.length
+      success: true,
+      data: {
+        widgets: userWidgets,
+        total: userWidgets.length
+      }
     })
   } catch (error) {
     console.error('Error fetching widgets:', error)
@@ -153,7 +156,10 @@ export async function POST(request: NextRequest) {
     // Store widget
     WIDGETS_DB[widgetId] = newWidget
 
-    return NextResponse.json(newWidget, { status: 201 })
+    return NextResponse.json({
+      success: true,
+      data: newWidget
+    }, { status: 201 })
   } catch (error) {
     console.error('Error creating widget:', error)
     return NextResponse.json(
@@ -234,7 +240,10 @@ export async function PUT(request: NextRequest) {
     // Save updated widget
     WIDGETS_DB[id] = updatedWidget
 
-    return NextResponse.json(updatedWidget)
+    return NextResponse.json({
+      success: true,
+      data: updatedWidget
+    })
   } catch (error) {
     console.error('Error updating widget:', error)
     return NextResponse.json(
@@ -296,7 +305,8 @@ export async function DELETE(request: NextRequest) {
     // Delete widget
     delete WIDGETS_DB[widgetId]
 
-    return NextResponse.json({ 
+    return NextResponse.json({
+      success: true,
       message: 'Widget deleted successfully',
       deletedWidgetId: widgetId 
     })
@@ -395,9 +405,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({
+      success: true,
       message: 'Bulk update completed',
-      updatedWidgets,
-      totalUpdated: updatedWidgets.length
+      data: {
+        updatedWidgets,
+        totalUpdated: updatedWidgets.length
+      }
     })
   } catch (error) {
     console.error('Error in bulk widget operation:', error)

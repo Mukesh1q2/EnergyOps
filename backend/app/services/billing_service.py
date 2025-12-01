@@ -22,9 +22,11 @@ from .rbac_service import PermissionType
 try:
     from stripe.error import StripeError, InvalidRequestError
 except ImportError:
-    # Fallback for newer stripe versions
-    from stripe import StripeError
-    InvalidRequestError = StripeError
+    # Stripe not installed, define dummy classes
+    class StripeError(Exception):
+        pass
+    class InvalidRequestError(Exception):
+        pass
 
 # Stripe configuration
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_...")

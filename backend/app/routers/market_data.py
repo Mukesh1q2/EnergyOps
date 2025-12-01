@@ -12,22 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from ..services.market_data_integration import market_data_service
-from ..models import MarketPrice
-from enum import Enum
-
-class MarketZone(str, Enum):
-    """Market zones"""
-    PJM = "pjm"
-    CAISO = "caiso"
-    ERCOT = "ercot"
-    MISO = "miso"
-    NYISO = "nyiso"
-    ISONE = "isone"
-try:
-    from ..services.kafka_consumer_service import market_data_stream_manager
-except ImportError:
-    market_data_stream_manager = None
+from ..services.market_data_integration import market_data_service, MarketPrice, MarketZone
+from ..services.kafka_consumer_service import market_data_stream_manager
 from ..core.database import get_db
 from ..crud.market_data import market_data_crud
 

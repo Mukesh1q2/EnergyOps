@@ -1,8 +1,120 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuthToken } from '../../../../../lib/auth'
+import { verifyAuthToken } from '@/lib/auth'
 
 // Mock user dashboard configurations
-const USER_CONFIGS = {
+const USER_CONFIGS: { [key: string]: any } = {
+  '1': {
+    id: 'dashboard-admin',
+    name: 'Admin Dashboard',
+    description: 'Full-featured admin dashboard with IEX India live data',
+    widgets: [
+      {
+        id: 'iex-live-prices-1',
+        type: 'iex-india-live-prices',
+        title: 'IEX India Live Prices',
+        position: { x: 0, y: 0, w: 6, h: 4 },
+        config: {
+          market: 'DAM',
+          region: 'All India',
+          refreshInterval: '30s'
+        },
+        permissions: []
+      },
+      {
+        id: 'iex-volume-1',
+        type: 'iex-india-market-volume',
+        title: 'IEX Market Volume',
+        position: { x: 6, y: 0, w: 6, h: 4 },
+        config: {
+          market: 'All Markets',
+          timeRange: '7 Days',
+          showComparison: true
+        },
+        permissions: []
+      },
+      {
+        id: 'iex-forecast-1',
+        type: 'iex-india-price-forecast',
+        title: 'AI Price Forecast',
+        position: { x: 0, y: 4, w: 4, h: 4 },
+        config: {
+          forecastHorizon: '24 Hours',
+          confidenceInterval: '90%',
+          showHistorical: true
+        },
+        permissions: []
+      },
+      {
+        id: 'iex-renewable-1',
+        type: 'iex-india-renewable-mix',
+        title: 'Renewable Energy Mix',
+        position: { x: 4, y: 4, w: 4, h: 4 },
+        config: {
+          energyType: ['Solar', 'Wind', 'Hydro'],
+          region: 'All India',
+          showTrend: true
+        },
+        permissions: []
+      },
+      {
+        id: 'iex-demand-1',
+        type: 'iex-india-demand-supply',
+        title: 'Demand-Supply Balance',
+        position: { x: 8, y: 4, w: 4, h: 4 },
+        config: {
+          region: 'All India',
+          showForecast: true,
+          alertThreshold: '10%'
+        },
+        permissions: []
+      }
+    ],
+    layout: 'grid',
+    theme: 'light',
+    autoRefresh: '1m',
+    permissions: ['dashboard.view', 'dashboard.edit', 'widget.view', 'widget.create', 'widget.edit', 'widget.delete'],
+    sharedWith: [],
+    createdAt: '2024-12-01T10:00:00Z',
+    updatedAt: '2024-12-01T10:00:00Z'
+  },
+  '2': {
+    id: 'dashboard-demo',
+    name: 'Demo Dashboard',
+    description: 'Demo dashboard with sample widgets',
+    widgets: [
+      {
+        id: 'demo-energy-1',
+        type: 'energy-generation-chart',
+        title: 'Energy Generation',
+        position: { x: 0, y: 0, w: 6, h: 4 },
+        config: {
+          dataSource: 'all',
+          timeRange: '24h',
+          aggregation: 'sum'
+        },
+        permissions: []
+      },
+      {
+        id: 'demo-market-1',
+        type: 'market-prices-widget',
+        title: 'Market Prices',
+        position: { x: 6, y: 0, w: 6, h: 4 },
+        config: {
+          marketZone: 'IEX-India',
+          priceType: 'MCP',
+          showTrend: true
+        },
+        permissions: []
+      }
+    ],
+    layout: 'grid',
+    theme: 'light',
+    autoRefresh: '5m',
+    permissions: ['dashboard.view', 'dashboard.edit', 'widget.view', 'widget.create', 'widget.edit'],
+    sharedWith: [],
+    createdAt: '2024-12-01T10:00:00Z',
+    updatedAt: '2024-12-01T10:00:00Z'
+  },
   'user-1': {
     id: 'dashboard-1',
     name: 'Main Dashboard',
@@ -203,7 +315,11 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    return NextResponse.json(configWithPermissions)
+    // Return in expected format: {success: true, data: ...}
+    return NextResponse.json({
+      success: true,
+      data: configWithPermissions
+    })
   } catch (error) {
     console.error('Error fetching user dashboard config:', error)
     return NextResponse.json(
@@ -264,7 +380,10 @@ export async function POST(request: NextRequest) {
     // Store in mock database (in real implementation, this would be saved to database)
     USER_CONFIGS[userId] = newDashboard
 
-    return NextResponse.json(newDashboard, { status: 201 })
+    return NextResponse.json({
+      success: true,
+      data: newDashboard
+    }, { status: 201 })
   } catch (error) {
     console.error('Error creating dashboard config:', error)
     return NextResponse.json(
@@ -296,31 +415,81 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, theme } = body
+    const { 
+      name, 
+      description, 
+      theme, 
+      widgets, 
+      layout, 
+      language, 
+      timezone, 
+      currency, 
+      autoRefresh,
+      notifications,
+      privacy,
+      performance,
+      accessibility
+    } = body
 
     const userId = user.id || 'user-1'
     const existingConfig = USER_CONFIGS[userId]
 
     if (!existingConfig) {
-      return NextResponse.json(
-        { error: 'Dashboard configuration not found' },
-        { status: 404 }
-      )
+      // Create a new config if one doesn't exist
+      const newConfig = {
+        id: `dashboard-${userId}`,
+        name: name || 'My Dashboard',
+        description: description || '',
+        widgets: widgets || [],
+        layout: layout || 'grid',
+        theme: theme || 'light',
+        language: language || 'en',
+        timezone: timezone || 'America/New_York',
+        currency: currency || 'USD',
+        autoRefresh: autoRefresh || '5m',
+        notifications: notifications || {},
+        privacy: privacy || {},
+        performance: performance || {},
+        accessibility: accessibility || {},
+        permissions: ['dashboard.view', 'dashboard.edit', 'widget.view', 'widget.create', 'widget.edit'],
+        sharedWith: [],
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      USER_CONFIGS[userId] = newConfig
+      return NextResponse.json({
+        success: true,
+        data: newConfig
+      }, { status: 201 })
     }
 
-    // Update configuration
+    // Update configuration with all provided fields
     const updatedConfig = {
       ...existingConfig,
-      name: name || existingConfig.name,
-      description: description || existingConfig.description,
-      theme: theme || existingConfig.theme,
+      name: name !== undefined ? name : existingConfig.name,
+      description: description !== undefined ? description : existingConfig.description,
+      theme: theme !== undefined ? theme : existingConfig.theme,
+      widgets: widgets !== undefined ? widgets : existingConfig.widgets,
+      layout: layout !== undefined ? layout : existingConfig.layout,
+      language: language !== undefined ? language : existingConfig.language,
+      timezone: timezone !== undefined ? timezone : existingConfig.timezone,
+      currency: currency !== undefined ? currency : existingConfig.currency,
+      autoRefresh: autoRefresh !== undefined ? autoRefresh : existingConfig.autoRefresh,
+      notifications: notifications !== undefined ? notifications : existingConfig.notifications,
+      privacy: privacy !== undefined ? privacy : existingConfig.privacy,
+      performance: performance !== undefined ? performance : existingConfig.performance,
+      accessibility: accessibility !== undefined ? accessibility : existingConfig.accessibility,
       updatedAt: new Date().toISOString()
     }
 
     // Save updated configuration
     USER_CONFIGS[userId] = updatedConfig
 
-    return NextResponse.json(updatedConfig)
+    return NextResponse.json({
+      success: true,
+      data: updatedConfig
+    })
   } catch (error) {
     console.error('Error updating dashboard config:', error)
     return NextResponse.json(
@@ -356,10 +525,13 @@ export async function DELETE(request: NextRequest) {
     // Delete dashboard configuration
     if (USER_CONFIGS[userId]) {
       delete USER_CONFIGS[userId]
-      return NextResponse.json({ message: 'Dashboard deleted successfully' })
+      return NextResponse.json({
+        success: true,
+        message: 'Dashboard deleted successfully'
+      })
     } else {
       return NextResponse.json(
-        { error: 'Dashboard configuration not found' },
+        { success: false, error: 'Dashboard configuration not found' },
         { status: 404 }
       )
     }

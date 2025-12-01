@@ -226,16 +226,3 @@ function generateSessionToken(userId: string): string {
   const crypto = require('crypto')
   return crypto.randomBytes(32).toString('hex')
 }
-
-function generateBackupCodes(): string[] {
-  const codes: string[] = []
-  for (let i = 0; i < 10; i++) {
-    codes.push(require('crypto').randomBytes(4).toString('hex').toUpperCase())
-  }
-  return codes
-}
-
-function generateSessionToken(userId: string): string {
-  const crypto = require('crypto')
-  return crypto.randomBytes(32).toString('hex')
-}

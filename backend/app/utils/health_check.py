@@ -256,11 +256,19 @@ async def check_clickhouse_health(timeout: float = 5.0) -> HealthCheckResult:
         
         async def _check():
             # Check if ClickHouse client is initialized
-            if clickhouse_service.client:
-                # Try a simple query
-                result = await clickhouse_service.client.execute("SELECT 1")
-                return result is not None
-            return False
+            if hasattr(clickhouse_service, 'client') and clickhouse_service.client:
+                try:
+                    # Try a simple query (synchronous for clickhouse-connect)
+                    result = clickhouse_service.client.command('SELECT 1')
+                    return result is not None
+                except:
+                    return False
+            # Try to initialize if not already done
+            try:
+                await clickhouse_service.initialize()
+                return True
+            except:
+                return False
         
         result = await asyncio.wait_for(_check(), timeout=timeout)
         
@@ -316,9 +324,17 @@ async def check_mlflow_health(timeout: float = 5.0) -> HealthCheckResult:
         
         async def _check():
             # Check if MLflow client is initialized
-            if advanced_ml_service.mlflow_client:
+            if hasattr(advanced_ml_service, 'mlflow_client') and advanced_ml_service.mlflow_client:
                 return True
-            return False
+            # If MLflow is available, try to ping the tracking server
+            try:
+                import mlflow
+                mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
+                # Try to list experiments as a health check
+                mlflow.search_experiments(max_results=1)
+                return True
+            except:
+                return False
         
         result = await asyncio.wait_for(_check(), timeout=timeout)
         

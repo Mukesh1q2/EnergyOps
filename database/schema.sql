@@ -10,7 +10,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 CREATE EXTENSION IF NOT EXISTS "timescaledb";
--- CREATE EXTENSION IF NOT EXISTS "pg_cron"; -- Not available in timescaledb-ha image
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
 CREATE EXTENSION IF NOT EXISTS "hstore";
 
@@ -283,7 +283,7 @@ CREATE TABLE ml_models (
 
 -- Model predictions
 CREATE TABLE model_predictions (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     model_id UUID NOT NULL REFERENCES ml_models(id) ON DELETE CASCADE,
     prediction_type VARCHAR(50) NOT NULL, -- load_forecast, price_forecast, bid_optimization
     target_time TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -291,14 +291,14 @@ CREATE TABLE model_predictions (
     confidence_interval JSONB, -- {"lower": 100, "upper": 200, "confidence": 0.95}
     actual_value DECIMAL(15,4), -- populated later for validation
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (target_time, model_id, prediction_type)
+    UNIQUE(model_id, prediction_type, target_time)
 );
 
 SELECT create_hypertable('model_predictions', 'target_time', if_not_exists => TRUE);
 
 -- Feature store (for ML features)
 CREATE TABLE feature_store (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     feature_name VARCHAR(255) NOT NULL,
     feature_type VARCHAR(50) NOT NULL, -- numeric, categorical, text, vector
     entity_id UUID, -- can reference assets, organizations, etc.
@@ -306,8 +306,7 @@ CREATE TABLE feature_store (
     feature_value JSONB NOT NULL,
     valid_from TIMESTAMP WITH TIME ZONE NOT NULL,
     valid_to TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (valid_from, id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 SELECT create_hypertable('feature_store', 'valid_from', if_not_exists => TRUE);
@@ -353,13 +352,13 @@ CREATE TABLE dashboard_widgets (
 
 -- Widget data cache
 CREATE TABLE widget_data_cache (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     widget_id UUID NOT NULL REFERENCES dashboard_widgets(id) ON DELETE CASCADE,
     cache_key VARCHAR(500) NOT NULL,
     data JSONB NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (expires_at, widget_id, cache_key)
+    UNIQUE(widget_id, cache_key)
 );
 
 SELECT create_hypertable('widget_data_cache', 'expires_at', if_not_exists => TRUE);
@@ -370,7 +369,7 @@ SELECT create_hypertable('widget_data_cache', 'expires_at', if_not_exists => TRU
 
 -- Audit logs
 CREATE TABLE audit_logs (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID REFERENCES organizations(id),
     user_id UUID REFERENCES users(id),
     action audit_action NOT NULL,
@@ -380,8 +379,7 @@ CREATE TABLE audit_logs (
     new_values JSONB,
     ip_address INET,
     user_agent TEXT,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (created_at, id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 SELECT create_hypertable('audit_logs', 'created_at', if_not_exists => TRUE);
@@ -859,9 +857,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Schedule cleanup jobs (every hour for sessions, daily for cache)
--- Note: pg_cron not available in timescaledb-ha image. Use external cron or application scheduler instead.
--- SELECT cron.schedule('cleanup-sessions', '0 * * * *', 'SELECT cleanup_expired_sessions();');
--- SELECT cron.schedule('cleanup-cache', '0 2 * * *', 'SELECT cleanup_expired_cache();');
+SELECT cron.schedule('cleanup-sessions', '0 * * * *', 'SELECT cleanup_expired_sessions();');
+SELECT cron.schedule('cleanup-cache', '0 2 * * *', 'SELECT cleanup_expired_cache();');
 
 -- ===============================================
 -- REAL-TIME MARKET DATA TABLES (Phase 7)
@@ -869,7 +866,7 @@ $$ LANGUAGE plpgsql;
 
 -- Real-time market price data for PJM, CAISO, ERCOT
 CREATE TABLE market_data (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
     market_zone VARCHAR(10) NOT NULL, -- 'PJM', 'CAISO', 'ERCOT'
     price_type VARCHAR(20) NOT NULL, -- 'RT_LMP', 'DA_LMP', 'MCP'
@@ -882,8 +879,7 @@ CREATE TABLE market_data (
     load_forecast DECIMAL(10,3),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    metadata JSONB DEFAULT '{}',
-    PRIMARY KEY (timestamp, id)
+    metadata JSONB DEFAULT '{}'
 );
 
 -- Convert to hypertable for TimescaleDB
@@ -891,7 +887,7 @@ SELECT create_hypertable('market_data', 'timestamp', if_not_exists => TRUE);
 
 -- Market metrics table for aggregated data
 CREATE TABLE market_metrics (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     market_zone VARCHAR(10) NOT NULL,
     calculation_time TIMESTAMP WITH TIME ZONE NOT NULL,
     avg_price DECIMAL(10,4) NOT NULL,
@@ -902,15 +898,14 @@ CREATE TABLE market_metrics (
     renewable_percentage DECIMAL(5,2),
     data_points INTEGER NOT NULL,
     metrics JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (calculation_time, id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 SELECT create_hypertable('market_metrics', 'calculation_time', if_not_exists => TRUE);
 
 -- Data quality monitoring
 CREATE TABLE market_data_quality (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     market_zone VARCHAR(10) NOT NULL,
     check_time TIMESTAMP WITH TIME ZONE NOT NULL,
     completeness_percent DECIMAL(5,2),
@@ -918,8 +913,7 @@ CREATE TABLE market_data_quality (
     data_freshness_minutes INTEGER,
     status VARCHAR(20) DEFAULT 'healthy', -- 'healthy', 'warning', 'error'
     details JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (check_time, id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 SELECT create_hypertable('market_data_quality', 'check_time', if_not_exists => TRUE);
@@ -975,8 +969,7 @@ GROUP BY date_trunc('day', time), market_operator_id, bid_zone_id, market_type;
 CREATE UNIQUE INDEX ON daily_market_prices (date, market_operator_id, bid_zone_id, market_type);
 
 -- Refresh materialized view daily
--- Note: pg_cron not available. Use external cron or application scheduler instead.
--- SELECT cron.schedule('refresh-market-prices', '0 3 * * *', 'REFRESH MATERIALIZED VIEW daily_market_prices;');
+SELECT cron.schedule('refresh-market-prices', '0 3 * * *', 'REFRESH MATERIALIZED VIEW daily_market_prices;');
 
 -- Real-time market data materialized view
 CREATE MATERIALIZED VIEW hourly_market_data_stats AS
@@ -995,7 +988,6 @@ GROUP BY date_trunc('hour', timestamp), market_zone;
 CREATE INDEX ON hourly_market_data_stats (hour, market_zone);
 
 -- Refresh hourly market data stats
--- Note: pg_cron not available. Use external cron or application scheduler instead.
--- SELECT cron.schedule('refresh-market-data-stats', '5 * * * *', 'REFRESH MATERIALIZED VIEW hourly_market_data_stats;');
+SELECT cron.schedule('refresh-market-data-stats', '5 * * * *', 'REFRESH MATERIALIZED VIEW hourly_market_data_stats;');
 
 COMMENT ON SCHEMA public IS 'OptiBid Energy Platform Database Schema v1.0.0';

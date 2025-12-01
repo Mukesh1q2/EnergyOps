@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -13,10 +13,63 @@ import {
 import { WidgetRenderer } from './WidgetRenderer'
 import { DashboardSettings } from './DashboardSettings'
 import { ShareDashboard } from './ShareDashboard'
-import { FeatureGate, WidgetWrapper, useFeatureFlags } from '@/components/feature-flags/FeatureFlagProvider'
+import { DashboardErrorBoundary } from './DashboardErrorBoundary'
+import { useFeatureFlags } from '@/lib/feature-flags/FeatureFlagProvider'
+import { FeatureGate, WidgetWrapper } from '@/components/feature-flags/FeatureFlagProvider'
 import { FeatureSettings } from '@/components/feature-flags/FeatureSettings'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
+
+/**
+ * Event-isolated container component that prevents scroll events from propagating
+ * to parent components, avoiding unintended state mutations in modals.
+ * Validates: Requirements 2.1, 2.3, 2.4
+ */
+interface EventIsolatedContainerProps {
+  children: React.ReactNode
+  className?: string
+}
+
+function EventIsolatedContainer({ children, className = '' }: EventIsolatedContainerProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // Prevent scroll events from propagating to parent components
+    const handleScroll = (e: Event) => {
+      e.stopPropagation()
+    }
+
+    // Prevent wheel events from triggering layout recalculations
+    const handleWheel = (e: WheelEvent) => {
+      e.stopPropagation()
+    }
+
+    // Prevent touch events from propagating during scroll
+    const handleTouchMove = (e: TouchEvent) => {
+      e.stopPropagation()
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    container.addEventListener('wheel', handleWheel, { passive: true })
+    container.addEventListener('touchmove', handleTouchMove, { passive: true })
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('wheel', handleWheel)
+      container.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])
+
+  return (
+    <div ref={containerRef} className={className}>
+      {children}
+    </div>
+  )
+}
 
 interface Widget {
   id: string
@@ -63,6 +116,15 @@ export function DashboardLayout({
   const [isFeatureSettingsOpen, setIsFeatureSettingsOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isViewMode, setIsViewMode] = useState(false)
+  
+  // Track if any modal is open to prevent unintended layout updates
+  // Validates: Requirements 2.1, 2.3 - Prevent scroll events from triggering state mutations
+  const isAnyModalOpen = isSettingsOpen || isShareOpen || isFeatureSettingsOpen
+  
+  // Store a snapshot of widgets when modal opens to enable rollback if needed
+  // Validates: Requirements 6.3, 6.5 - Share modal doesn't affect chart data
+  const widgetsSnapshotRef = useRef<Widget[]>([])
+  const layoutsSnapshotRef = useRef<any>({})
 
   useEffect(() => {
     if (dashboardData) {
@@ -89,7 +151,40 @@ export function DashboardLayout({
     }
   }, [dashboardData])
 
-  const handleLayoutChange = (layout: any, layouts: any) => {
+  // Capture widget and layout snapshot when modal opens, restore on close
+  // Validates: Requirements 2.4 - Preserve widget configurations across all user interactions
+  // Validates: Requirements 6.3, 6.5 - Share modal doesn't affect chart data
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      // Capture snapshot when modal opens
+      widgetsSnapshotRef.current = JSON.parse(JSON.stringify(widgets))
+      layoutsSnapshotRef.current = JSON.parse(JSON.stringify(layouts))
+    } else if (widgetsSnapshotRef.current.length > 0) {
+      // Verify data integrity when modal closes
+      // If widgets were unexpectedly modified during modal interaction, restore from snapshot
+      const currentWidgetIds = widgets.map(w => w.id).sort().join(',')
+      const snapshotWidgetIds = widgetsSnapshotRef.current.map(w => w.id).sort().join(',')
+      
+      if (currentWidgetIds !== snapshotWidgetIds) {
+        console.warn('Widget data was modified during modal interaction, restoring from snapshot')
+        setWidgets(widgetsSnapshotRef.current)
+        setLayouts(layoutsSnapshotRef.current)
+      }
+    }
+  }, [isAnyModalOpen])
+
+  /**
+   * Handle layout changes from react-grid-layout.
+   * Prevents state mutations when modals are open to avoid scroll-triggered updates.
+   * Validates: Requirements 2.1, 2.3
+   */
+  const handleLayoutChange = useCallback((layout: any, layouts: any) => {
+    // Prevent layout updates when any modal is open
+    // This prevents scroll events in modals from triggering unintended state mutations
+    if (isAnyModalOpen) {
+      return
+    }
+    
     setLayouts(layouts)
     
     // Update widget positions
@@ -111,7 +206,7 @@ export function DashboardLayout({
     
     setWidgets(updatedWidgets)
     onLayoutUpdate(layouts)
-  }
+  }, [isAnyModalOpen, widgets, onLayoutUpdate])
 
   const handleWidgetResize = (widgetId: string, newSize: any) => {
     const updatedWidgets = widgets.map(widget => {
@@ -356,6 +451,7 @@ export function DashboardLayout({
       </div>
 
       {/* Settings Modal */}
+      {/* Validates: Requirements 4.1, 4.2 - Settings are passed to parent and trigger API save */}
       <AnimatePresence>
         {isSettingsOpen && (
           <DashboardSettings
@@ -363,19 +459,36 @@ export function DashboardLayout({
             onClose={() => setIsSettingsOpen(false)}
             dashboardData={dashboardData}
             onUpdate={onLayoutUpdate}
+            onSettingsSaved={() => {
+              // Notify parent that settings were saved successfully
+              // This allows the parent to reload dashboard data if needed
+              onFeaturesUpdated?.()
+            }}
           />
         )}
       </AnimatePresence>
 
       {/* Share Modal */}
+      {/* Validates: Requirements 6.1, 6.2, 6.3, 6.5 - Error boundary wrapper for ShareDashboard */}
       <AnimatePresence>
         {isShareOpen && (
-          <ShareDashboard
-            isOpen={isShareOpen}
+          <DashboardErrorBoundary
+            componentType="modal"
+            errorTitle="Share Feature Temporarily Unavailable"
+            errorDescription="We're working on this feature. Please try again later."
             onClose={() => setIsShareOpen(false)}
-            dashboard={dashboardData}
-            user={user}
-          />
+            showCloseButton={true}
+            onError={(error, errorInfo) => {
+              console.error('ShareDashboard error:', error, errorInfo)
+            }}
+          >
+            <ShareDashboard
+              isOpen={isShareOpen}
+              onClose={() => setIsShareOpen(false)}
+              dashboard={dashboardData}
+              user={user}
+            />
+          </DashboardErrorBoundary>
         )}
       </AnimatePresence>
 

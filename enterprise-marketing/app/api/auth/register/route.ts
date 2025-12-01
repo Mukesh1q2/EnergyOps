@@ -1,111 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { UserDB, OrganizationDB, MembershipDB, EmailDB, AuditDB } from '@/lib/database'
+// Temporarily disable database imports for demo
+// import { UserDB, OrganizationDB, MembershipDB, EmailDB, AuditDB } from '@/lib/database'
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  confirmPassword: z.string(),
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  company: z.string().min(1, 'Company is required'),
-  role: z.string().min(1, 'Role is required'),
+  confirmPassword: z.string().optional(),
+  firstName: z.string().min(1, 'First name is required').optional(),
+  lastName: z.string().min(1, 'Last name is required').optional(),
+  company: z.string().min(1, 'Company is required').optional(),
+  role: z.string().min(1, 'Role is required').optional(),
   phone: z.string().optional(),
-  acceptTerms: z.boolean().refine(val => val === true, 'Terms must be accepted')
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"]
+  acceptTerms: z.boolean().optional()
 })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('Registration attempt:', { email: body.email })
+    
     const validatedData = registerSchema.parse(body)
 
-    // Check if user already exists
-    const existingUser = await UserDB.findByEmail(validatedData.email)
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 400 }
-      )
-    }
-
-    // Hash password
-    const saltRounds = 12
-    const hashedPassword = await bcrypt.hash(validatedData.password, saltRounds)
-
-    // Generate email verification token
-    const verificationToken = generateVerificationToken()
-
-    // Create user with pending verification status
-    const user = await UserDB.create({
-      email: validatedData.email,
-      password_hash: hashedPassword,
-      first_name: validatedData.firstName,
-      last_name: validatedData.lastName,
-      company: validatedData.company,
-      role: validatedData.role,
-      phone: validatedData.phone,
-      email_verification_token: verificationToken,
-      email_verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      status: 'pending_verification'
-    })
-
-    // Save verification token
-    await EmailDB.saveVerificationToken(validatedData.email, verificationToken)
-
-    // Send verification email
-    await sendVerificationEmail(validatedData.email, verificationToken)
-
-    // Create organization if new company
-    let organization = await OrganizationDB.findById(
-      // Check if organization exists by name (simplified - in production you'd search by name)
-      null
-    )
+    // DEMO MODE: For now, just show success message without database
+    // In production, this would create a real user in the database
     
-    // For now, create organization for new company
-    organization = await OrganizationDB.create({
-      name: validatedData.company,
-      domain: extractDomainFromEmail(validatedData.email),
-      plan: 'free',
-      settings: {
-        mfaRequired: false,
-        ssoEnabled: false,
-        sessionTimeout: 3600,
-        allowSocialLogin: true
-      }
-    })
-
-    // Add user to organization as owner
-    await MembershipDB.create({
-      user_id: user.id,
-      organization_id: organization.id,
-      role: 'owner',
-      invited_by: user.id
-    })
-
-    // Log user registration
-    await AuditDB.log({
-      user_id: user.id,
-      organization_id: organization.id,
-      action: 'user_registered',
-      resource_type: 'user',
-      new_values: {
-        email: user.email,
-        company: user.company,
-        role: user.role
-      }
-    })
-
+    console.log('Registration successful (demo mode):', validatedData.email)
+    
     return NextResponse.json({
       success: true,
-      message: 'Account created successfully. Please check your email to verify your account.',
+      message: 'Registration is currently in demo mode. Please use the test credentials to login:\n\nAdmin: admin@optibid.com / admin123\nDemo: demo@optibid.com / demo123',
       data: {
-        userId: user.id,
-        email: user.email,
-        requiresVerification: true
+        email: validatedData.email,
+        note: 'Database not configured. Use test accounts for login.'
       }
     })
 

@@ -201,7 +201,7 @@ export async function PUT(request: NextRequest) {
   // Fine-tune NLP models with new data
   const trainingResult = {
     modelId,
-    status: fineTune ? 'fine_tuning' | 'training',
+    status: fineTune ? 'fine_tuning' : 'training',
     progress: {
       epoch: 12,
       totalEpochs: 50,
@@ -227,7 +227,7 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({
     success: true,
     training: trainingResult,
-    message: `Model ${fineTune ? 'fine-tuning' | 'training'} initiated successfully`
+    message: `Model ${fineTune ? 'fine-tuning' : 'training'} initiated successfully`
   });
 }
 

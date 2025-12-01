@@ -98,13 +98,49 @@ export function LoginSignupContent() {
     e.preventDefault()
     setLoading(true)
     
-    // Simulate authentication
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    setLoading(false)
-    
-    // Redirect to dashboard or show success
-    window.location.href = '/dashboard'
+    try {
+      if (isLogin) {
+        // Login with Next.js API route
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          alert(data.detail || 'Login failed. Please check your credentials.')
+          setLoading(false)
+          return
+        }
+        
+        // Store the tokens
+        localStorage.setItem('optibid_access_token', data.access_token)
+        if (data.refresh_token) {
+          localStorage.setItem('optibid_refresh_token', data.refresh_token)
+        }
+        if (data.user) {
+          localStorage.setItem('optibid_user', JSON.stringify(data.user))
+        }
+        
+        // Redirect to dashboard
+        window.location.href = '/dashboard'
+      } else {
+        // Signup - for now just show message
+        alert('Signup functionality coming soon! Please use the test credentials to login.')
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('Authentication error:', error)
+      alert('Network error. Please check your connection and try again.')
+      setLoading(false)
+    }
   }
 
   const currentMethod = authMethods.find(m => m.id === selectedMethod)

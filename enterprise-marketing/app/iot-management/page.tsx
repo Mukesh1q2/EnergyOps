@@ -61,7 +61,7 @@ const IoTManagementPage: React.FC = () => {
     },
     {
       label: 'Active Connections',
-      value: 1,456,
+      value: 1456,
       change: -2.3,
       changeType: 'decrease',
       icon: WifiIcon,

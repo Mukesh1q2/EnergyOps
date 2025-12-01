@@ -22,6 +22,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 import boto3
 from botocore.exceptions import ClientError
+import redis
 import redis.asyncio as aioredis
 
 from app.core.config import settings

@@ -683,3 +683,152 @@ async def get_ml_capabilities():
         ],
         "timestamp": datetime.now().isoformat()
     })
+
+# AI Admin Endpoints
+@router.get("/ai/models")
+async def get_ai_models():
+    """
+    Get all AI models with their stats for admin interface.
+    """
+    try:
+        # Mock data for AI models - in production, fetch from database
+        models = [
+            {
+                "id": "lstm-price-forecaster-v2.1.4",
+                "name": "LSTM Price Forecaster",
+                "type": "lstm",
+                "category": "Price Forecasting",
+                "accuracy": 94.2,
+                "latency": 45.3,
+                "status": "active",
+                "version": "2.1.4"
+            },
+            {
+                "id": "transformer-market-analyzer-v1.8.3",
+                "name": "Transformer Market Analyzer",
+                "type": "transformer",
+                "category": "Market Analysis",
+                "accuracy": 91.7,
+                "latency": 67.8,
+                "status": "active",
+                "version": "1.8.3"
+            },
+            {
+                "id": "random-forest-risk-assessor-v3.0.2",
+                "name": "Random Forest Risk Assessor",
+                "type": "random_forest",
+                "category": "Risk Assessment",
+                "accuracy": 88.5,
+                "latency": 23.1,
+                "status": "active",
+                "version": "3.0.2"
+            },
+            {
+                "id": "gradient-boost-demand-predictor-v1.5.1",
+                "name": "Gradient Boost Demand Predictor",
+                "type": "gradient_boost",
+                "category": "Demand Forecasting",
+                "accuracy": 92.3,
+                "latency": 34.6,
+                "status": "active",
+                "version": "1.5.1"
+            },
+            {
+                "id": "neural-net-anomaly-detector-v2.0.0",
+                "name": "Neural Net Anomaly Detector",
+                "type": "neural_network",
+                "category": "Anomaly Detection",
+                "accuracy": 96.1,
+                "latency": 28.9,
+                "status": "training",
+                "version": "2.0.0"
+            }
+        ]
+        
+        stats = {
+            "total_models": len(models),
+            "active_models": len([m for m in models if m["status"] == "active"]),
+            "average_accuracy": sum(m["accuracy"] for m in models) / len(models),
+            "average_latency": sum(m["latency"] for m in models) / len(models)
+        }
+        
+        return {
+            "success": True,
+            "data": {
+                "models": models,
+                "stats": stats
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch AI models: {str(e)}")
+
+
+@router.get("/ai/predictions")
+async def get_ai_predictions():
+    """
+    Get recent AI predictions for admin interface.
+    """
+    try:
+        # Mock data for predictions - in production, fetch from database
+        predictions = [
+            {
+                "id": "pred-001",
+                "model_name": "LSTM Price Forecaster",
+                "type": "price_forecast",
+                "confidence": 94.2,
+                "timestamp": datetime.now().isoformat(),
+                "status": "completed",
+                "processing_time": 45.3
+            },
+            {
+                "id": "pred-002",
+                "model_name": "Transformer Market Analyzer",
+                "type": "market_analysis",
+                "confidence": 91.7,
+                "timestamp": datetime.now().isoformat(),
+                "status": "completed",
+                "processing_time": 67.8
+            },
+            {
+                "id": "pred-003",
+                "model_name": "Random Forest Risk Assessor",
+                "type": "risk_assessment",
+                "confidence": 88.5,
+                "timestamp": datetime.now().isoformat(),
+                "status": "completed",
+                "processing_time": 23.1
+            },
+            {
+                "id": "pred-004",
+                "model_name": "Gradient Boost Demand Predictor",
+                "type": "demand_forecast",
+                "confidence": 92.3,
+                "timestamp": datetime.now().isoformat(),
+                "status": "completed",
+                "processing_time": 34.6
+            },
+            {
+                "id": "pred-005",
+                "model_name": "Neural Net Anomaly Detector",
+                "type": "anomaly_detection",
+                "confidence": 96.1,
+                "timestamp": datetime.now().isoformat(),
+                "status": "pending",
+                "processing_time": 28.9
+            }
+        ]
+        
+        stats = {
+            "total_predictions": 847234,
+            "predictions_today": len(predictions)
+        }
+        
+        return {
+            "success": True,
+            "data": {
+                "predictions": predictions,
+                "stats": stats
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch predictions: {str(e)}")

@@ -14,7 +14,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   LockOpenIcon,
-  SecurityScanIcon,
+  MagnifyingGlassIcon,
   DocumentTextIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline'
@@ -185,7 +185,7 @@ export function EnterpriseSecurityPageContent() {
               </div>
               
               <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <SecurityScanIcon className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                <MagnifyingGlassIcon className="w-8 h-8 text-blue-600 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-blue-600">&lt; 1min</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Threat Detection</div>
               </div>
@@ -514,7 +514,7 @@ const ssoIntegrations = [
   },
   {
     name: "Custom SAML",
-    icon: SecurityScanIcon
+    icon: MagnifyingGlassIcon
   }
 ]
 

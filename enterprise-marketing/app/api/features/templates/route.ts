@@ -219,43 +219,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/features/templates/[templateId] - Get specific template details
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { templateId: string } }
-) {
-  try {
-    const { templateId } = params
-
-    if (!templateId) {
-      return NextResponse.json(
-        { error: 'Template ID is required' },
-        { status: 400 }
-      )
-    }
-
-    const template = await featureFlagService.getTemplate(templateId)
-    if (!template) {
-      return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({
-      template,
-      preview: generateTemplatePreview(template)
-    })
-
-  } catch (error) {
-    console.error('Error fetching template:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch template' },
-      { status: 500 }
-    )
-  }
-}
-
 // Helper function to validate template compatibility
 async function validateTemplateCompatibility(template: any, organizationId: string) {
   const issues: string[] = []

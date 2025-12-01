@@ -25,19 +25,11 @@ class MarketDataSimulator:
     
     def __init__(self, bootstrap_servers: str = "localhost:9092"):
         self.bootstrap_servers = bootstrap_servers
-        # Only initialize Kafka if enabled
-        try:
-            from app.core.config import settings
-            if getattr(settings, 'ENABLE_KAFKA', False):
-                self.producer = KafkaProducer(
-                    bootstrap_servers=bootstrap_servers,
-                    value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
-                    key_serializer=lambda k: str(k).encode('utf-8') if k else None
-                )
-            else:
-                self.producer = None
-        except:
-            self.producer = None
+        self.producer = KafkaProducer(
+            bootstrap_servers=bootstrap_servers,
+            value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
+            key_serializer=lambda k: str(k).encode('utf-8') if k else None
+        )
         self.running = False
         self.tasks = []
         
@@ -165,8 +157,7 @@ class MarketDataSimulator:
             topic = f"market_data.{market_zone.value.lower()}"
             key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
             
-            if self.producer:
-                self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
+            self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
             
             logger.debug(f"Simulated {market_zone.value} data: ${price_data['price']:.2f} at {price_data['location']}")
             return True
@@ -193,8 +184,7 @@ class MarketDataSimulator:
                 topic = f"market_data.{market_zone.value.lower()}"
                 key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
                 
-                if self.producer:
-                    self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
+                self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
                 success_count += 1
                 
             except KafkaError as e:
@@ -252,8 +242,7 @@ class MarketDataSimulator:
                             topic = f"market_data.{market_zone.value.lower()}"
                             key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
                             
-                            if self.producer:
-                                self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
+                            self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
                             total_records += 1
                             
                         except KafkaError as e:

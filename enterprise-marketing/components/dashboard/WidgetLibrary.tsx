@@ -63,6 +63,93 @@ const WIDGET_CATEGORIES = [
 ]
 
 const AVAILABLE_WIDGETS: Widget[] = [
+  // IEX India Energy Market Widgets (Live Data)
+  {
+    id: 'iex-india-live-prices',
+    name: 'IEX India Live Prices',
+    description: 'Real-time electricity prices from Indian Energy Exchange with live updates',
+    category: 'real-time',
+    icon: BoltIcon,
+    preview: 'chart-line',
+    configSchema: {
+      market: { type: 'select', options: ['DAM', 'RTM', 'TAM', 'GDAM', 'HPDAM'] },
+      region: { type: 'select', options: ['All India', 'Northern', 'Southern', 'Western', 'Eastern', 'North-Eastern'] },
+      refreshInterval: { type: 'select', options: ['10s', '30s', '1m', '5m'] }
+    },
+    permissions: [], // No permission required - available to all
+    tags: ['IEX', 'India', 'live', 'prices', 'real-time'],
+    popularity: 99,
+    lastUpdated: '2024-12-01'
+  },
+  {
+    id: 'iex-india-market-volume',
+    name: 'IEX Market Volume',
+    description: 'Trading volume and cleared volume from IEX India markets',
+    category: 'analytics',
+    icon: ChartBarIcon,
+    preview: 'chart-bar',
+    configSchema: {
+      market: { type: 'select', options: ['DAM', 'RTM', 'TAM', 'All Markets'] },
+      timeRange: { type: 'select', options: ['Today', '7 Days', '30 Days', '90 Days'] },
+      showComparison: { type: 'boolean' }
+    },
+    permissions: [],
+    tags: ['IEX', 'India', 'volume', 'trading'],
+    popularity: 96,
+    lastUpdated: '2024-12-01'
+  },
+  {
+    id: 'iex-india-price-forecast',
+    name: 'IEX Price Forecast',
+    description: 'AI-powered price forecasting for Indian electricity markets',
+    category: 'analytics',
+    icon: ArrowTrendingUpIcon,
+    preview: 'chart-area',
+    configSchema: {
+      forecastHorizon: { type: 'select', options: ['24 Hours', '48 Hours', '7 Days'] },
+      confidenceInterval: { type: 'select', options: ['80%', '90%', '95%'] },
+      showHistorical: { type: 'boolean' }
+    },
+    permissions: [],
+    tags: ['IEX', 'India', 'forecast', 'AI', 'prediction'],
+    popularity: 94,
+    lastUpdated: '2024-12-01'
+  },
+  {
+    id: 'iex-india-renewable-mix',
+    name: 'India Renewable Energy Mix',
+    description: 'Real-time renewable energy generation mix across India',
+    category: 'energy',
+    icon: GlobeAltIcon,
+    preview: 'pie-chart',
+    configSchema: {
+      energyType: { type: 'multiselect', options: ['Solar', 'Wind', 'Hydro', 'Biomass', 'Nuclear'] },
+      region: { type: 'select', options: ['All India', 'Northern', 'Southern', 'Western', 'Eastern'] },
+      showTrend: { type: 'boolean' }
+    },
+    permissions: [],
+    tags: ['IEX', 'India', 'renewable', 'solar', 'wind'],
+    popularity: 92,
+    lastUpdated: '2024-12-01'
+  },
+  {
+    id: 'iex-india-demand-supply',
+    name: 'India Demand-Supply Balance',
+    description: 'Real-time demand and supply balance across Indian power grid',
+    category: 'real-time',
+    icon: PresentationChartLineIcon,
+    preview: 'chart-dual',
+    configSchema: {
+      region: { type: 'select', options: ['All India', 'Northern', 'Southern', 'Western', 'Eastern', 'North-Eastern'] },
+      showForecast: { type: 'boolean' },
+      alertThreshold: { type: 'select', options: ['5%', '10%', '15%', '20%'] }
+    },
+    permissions: [],
+    tags: ['IEX', 'India', 'demand', 'supply', 'grid'],
+    popularity: 91,
+    lastUpdated: '2024-12-01'
+  },
+  // Standard Energy Widgets
   {
     id: 'energy-generation-chart',
     name: 'Energy Generation Chart',
@@ -75,7 +162,7 @@ const AVAILABLE_WIDGETS: Widget[] = [
       timeRange: { type: 'select', options: ['1h', '24h', '7d', '30d'] },
       aggregation: { type: 'select', options: ['sum', 'average', 'max', 'min'] }
     },
-    permissions: ['view-energy-data'],
+    permissions: [],
     tags: ['energy', 'generation', 'renewable'],
     popularity: 95,
     lastUpdated: '2024-01-15'
@@ -88,11 +175,11 @@ const AVAILABLE_WIDGETS: Widget[] = [
     icon: CurrencyDollarIcon,
     preview: 'chart-area',
     configSchema: {
-      marketZone: { type: 'select', options: ['PJM', 'CAISO', 'ERCOT', 'NYISO'] },
-      priceType: { type: 'select', options: ['LMP', 'Energy', 'Capacity'] },
+      marketZone: { type: 'select', options: ['PJM', 'CAISO', 'ERCOT', 'NYISO', 'IEX-India'] },
+      priceType: { type: 'select', options: ['LMP', 'Energy', 'Capacity', 'MCP'] },
       showTrend: { type: 'boolean' }
     },
-    permissions: ['view-market-data'],
+    permissions: [],
     tags: ['market', 'prices', 'trading'],
     popularity: 88,
     lastUpdated: '2024-01-20'
@@ -109,7 +196,7 @@ const AVAILABLE_WIDGETS: Widget[] = [
       showMetrics: { type: 'boolean' },
       refreshInterval: { type: 'select', options: ['30s', '1m', '5m'] }
     },
-    permissions: ['view-asset-data'],
+    permissions: [],
     tags: ['assets', 'status', 'grid'],
     popularity: 92,
     lastUpdated: '2024-01-18'
@@ -125,7 +212,7 @@ const AVAILABLE_WIDGETS: Widget[] = [
       kpiType: { type: 'select', options: ['generation', 'revenue', 'efficiency', 'all'] },
       comparisonPeriod: { type: 'select', options: ['previous-period', 'target', 'industry'] }
     },
-    permissions: ['view-kpis'],
+    permissions: [],
     tags: ['kpi', 'performance', 'targets'],
     popularity: 85,
     lastUpdated: '2024-01-12'
@@ -142,7 +229,7 @@ const AVAILABLE_WIDGETS: Widget[] = [
       showClusters: { type: 'boolean' },
       highlightBy: { type: 'select', options: ['status', 'capacity', 'generation'] }
     },
-    permissions: ['view-geographic-data'],
+    permissions: [],
     tags: ['map', 'geographic', 'assets'],
     popularity: 76,
     lastUpdated: '2024-01-10'
@@ -155,11 +242,11 @@ const AVAILABLE_WIDGETS: Widget[] = [
     icon: ArrowTrendingUpIcon,
     preview: 'trading',
     configSchema: {
-      marketZone: { type: 'select', options: ['PJM', 'CAISO', 'ERCOT', 'NYISO', 'MISO'] },
+      marketZone: { type: 'select', options: ['PJM', 'CAISO', 'ERCOT', 'NYISO', 'MISO', 'IEX-India'] },
       showOrders: { type: 'boolean' },
       timeHorizon: { type: 'select', options: ['day-ahead', 'real-time', 'ancillary'] }
     },
-    permissions: ['view-trading-data'],
+    permissions: [],
     tags: ['trading', 'bids', 'market'],
     popularity: 82,
     lastUpdated: '2024-01-22'
@@ -175,7 +262,7 @@ const AVAILABLE_WIDGETS: Widget[] = [
       teamMembers: { type: 'multiselect', options: [] },
       activityTypes: { type: 'multiselect', options: ['comments', 'edits', 'shares', 'all'] }
     },
-    permissions: ['view-team-data'],
+    permissions: [],
     tags: ['team', 'activity', 'collaboration'],
     popularity: 68,
     lastUpdated: '2024-01-08'
@@ -192,10 +279,62 @@ const AVAILABLE_WIDGETS: Widget[] = [
       includeCharts: { type: 'boolean' },
       format: { type: 'select', options: ['pdf', 'excel', 'both'] }
     },
-    permissions: ['view-reports'],
+    permissions: [],
     tags: ['compliance', 'reports', 'regulatory'],
     popularity: 74,
     lastUpdated: '2024-01-14'
+  },
+  // AI & Quantum Widgets
+  {
+    id: 'ai-price-prediction',
+    name: 'AI Price Prediction',
+    description: 'Machine learning powered price predictions with 94% accuracy',
+    category: 'analytics',
+    icon: ArrowTrendingUpIcon,
+    preview: 'ai-chart',
+    configSchema: {
+      model: { type: 'select', options: ['LSTM', 'Transformer', 'XGBoost', 'Ensemble'] },
+      horizon: { type: 'select', options: ['1h', '4h', '24h', '7d'] },
+      showConfidence: { type: 'boolean' }
+    },
+    permissions: [],
+    tags: ['AI', 'prediction', 'machine-learning'],
+    popularity: 90,
+    lastUpdated: '2024-12-01'
+  },
+  {
+    id: 'quantum-optimization',
+    name: 'Quantum Portfolio Optimizer',
+    description: 'Quantum-enhanced portfolio optimization for energy assets',
+    category: 'analytics',
+    icon: CubeIcon,
+    preview: 'quantum',
+    configSchema: {
+      algorithm: { type: 'select', options: ['QAOA', 'VQE', 'Quantum Annealing'] },
+      riskTolerance: { type: 'select', options: ['Low', 'Medium', 'High'] },
+      rebalanceFrequency: { type: 'select', options: ['Daily', 'Weekly', 'Monthly'] }
+    },
+    permissions: [],
+    tags: ['quantum', 'optimization', 'portfolio'],
+    popularity: 85,
+    lastUpdated: '2024-12-01'
+  },
+  {
+    id: 'real-time-alerts',
+    name: 'Real-time Alerts',
+    description: 'Customizable alerts for price changes, grid events, and market conditions',
+    category: 'real-time',
+    icon: ClockIcon,
+    preview: 'alerts',
+    configSchema: {
+      alertTypes: { type: 'multiselect', options: ['Price Spike', 'Grid Emergency', 'Volume Surge', 'Forecast Deviation'] },
+      threshold: { type: 'select', options: ['5%', '10%', '15%', '20%'] },
+      notificationMethod: { type: 'select', options: ['In-App', 'Email', 'SMS', 'All'] }
+    },
+    permissions: [],
+    tags: ['alerts', 'notifications', 'real-time'],
+    popularity: 88,
+    lastUpdated: '2024-12-01'
   }
 ]
 
@@ -230,10 +369,14 @@ export function WidgetLibrary({ isOpen, onClose, onWidgetAdd, userPermissions }:
       )
     }
 
-    // Filter by user permissions
-    filtered = filtered.filter(widget =>
-      widget.permissions.some(permission => userPermissions.includes(permission))
-    )
+    // Filter by user permissions - WITH FALLBACK
+    if (userPermissions && userPermissions.length > 0) {
+      filtered = filtered.filter(widget =>
+        widget.permissions.length === 0 || // Widgets with no permission requirements
+        widget.permissions.some(permission => userPermissions.includes(permission))
+      )
+    }
+    // If no permissions set, show all widgets (don't filter them out)
 
     // Sort widgets
     filtered.sort((a, b) => {

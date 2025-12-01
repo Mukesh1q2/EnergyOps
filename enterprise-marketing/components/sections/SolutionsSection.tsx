@@ -8,7 +8,7 @@ import {
   CurrencyDollarIcon,
   BoltIcon,
   CpuChipIcon,
-  BatteryIcon,
+  PowerIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/outline'
 import { useI18n } from '@/components/providers/I18nProvider'
@@ -17,6 +17,7 @@ import { trackInteraction } from '@/components/providers/Analytics'
 const solutions = [
   {
     id: 'analyst',
+    translationKey: 'analyst',
     icon: ChartBarIcon,
     gradient: 'from-blue-500 to-cyan-500',
     bgGradient: 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20',
@@ -25,6 +26,7 @@ const solutions = [
   },
   {
     id: 'trader',
+    translationKey: 'trader',
     icon: CurrencyDollarIcon,
     gradient: 'from-green-500 to-emerald-500',
     bgGradient: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
@@ -33,6 +35,7 @@ const solutions = [
   },
   {
     id: 'producer',
+    translationKey: 'producer',
     icon: BoltIcon,
     gradient: 'from-yellow-500 to-orange-500',
     bgGradient: 'from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20',
@@ -41,6 +44,7 @@ const solutions = [
   },
   {
     id: 'grid-ops',
+    translationKey: 'gridOps',
     icon: CpuChipIcon,
     gradient: 'from-purple-500 to-indigo-500',
     bgGradient: 'from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20',
@@ -49,7 +53,8 @@ const solutions = [
   },
   {
     id: 'storage',
-    icon: BatteryIcon,
+    translationKey: 'storage',
+    icon: PowerIcon,
     gradient: 'from-pink-500 to-rose-500',
     bgGradient: 'from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20',
     borderColor: 'border-pink-200 dark:border-pink-800',
@@ -94,7 +99,7 @@ export function SolutionsSection() {
         <div className="mt-20">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3">
             {solutions.map((solution, index) => {
-              const solutionData = t(`solutions.${solution.id}`) as any
+              const solutionData = t(`solutions.${solution.translationKey}`) as any
               const Icon = solution.icon
 
               return (
@@ -131,15 +136,15 @@ export function SolutionsSection() {
 
                     {/* Content */}
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                      {solutionData.title}
+                      {solutionData?.title || 'Solution'}
                     </h3>
                     <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-                      {solutionData.description}
+                      {solutionData?.description || 'Advanced solution for energy professionals'}
                     </p>
 
                     {/* Features List */}
                     <ul className="space-y-2 mb-8">
-                      {solutionData.features.map((feature: string, featureIndex: number) => (
+                      {solutionData?.features?.map((feature: string, featureIndex: number) => (
                         <motion.li
                           key={featureIndex}
                           initial={{ opacity: 0, x: -10 }}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { NoAPIKeyImplementation } from '@/lib/quantum-applications/free-data-sources';
+import { ProductionDataScraper } from '@/lib/quantum-applications/production-data-sources';
 
 /**
  * India Energy Market API
@@ -442,8 +443,8 @@ export async function POST(request: NextRequest) {
   try {
     const { action, parameters } = await request.json();
     
-    // Initialize free data source implementation
-    const dataSource = new NoAPIKeyImplementation();
+    // Initialize production data source with circuit breaker and monitoring
+    const dataSource = new ProductionDataScraper();
     const baseData = await dataSource.getMarketData();
     
     // Fallback to mock data if free sources fail
@@ -560,8 +561,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Initialize free data source implementation
-    const dataSource = new NoAPIKeyImplementation();
+    // Initialize production data source with circuit breaker and monitoring
+    const dataSource = new ProductionDataScraper();
     const baseData = await dataSource.getMarketData();
     
     // Return comprehensive India energy market data

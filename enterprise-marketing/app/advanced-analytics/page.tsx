@@ -13,29 +13,22 @@ export const metadata: Metadata = {
 
 export default function AdvancedAnalyticsPage() {
   return (
-    <>
-      {/* Structured Data for SEO */}
+    <div>
       <AdvancedAnalyticsSchema />
       
       <main id="main-content" className="relative min-h-screen">
-        {/* Dynamic Background */}
         <div className="fixed inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-blue-900/20 to-purple-900/20" />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.02"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
         </div>
         
-        {/* Navigation */}
         <Navigation />
         
-        {/* Advanced Analytics Content */}
         <AdvancedAnalyticsPageContent />
         
-        {/* Footer */}
         <Footer />
         
-        {/* Cookie Banner */}
         <CookieBanner />
       </main>
-    </>
+    </div>
   )
 }

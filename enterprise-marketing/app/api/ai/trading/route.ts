@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             entryPrice: 42.85,
             targetPrice: 46.50,
             stopLoss: 39.20,
-            riskReward: 1:2.1
+            riskReward: '1:2.1'
           },
           {
             asset: 'WIND',
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
             entryPrice: 38.92,
             targetPrice: 41.80,
             stopLoss: 36.50,
-            riskReward: 1:1.5
+            riskReward: '1:1.5'
           }
         ],
         allocation: 35,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
             entryPrice: 156.30,
             targetPrice: 148.90,
             stopLoss: 162.50,
-            riskReward: 1:1.8
+            riskReward: '1:1.8'
           }
         ],
         allocation: 30,
@@ -291,7 +291,7 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({
     success: true,
     update: updateResult,
-    message: `Trading algorithm ${retrain ? 'retraining initiated' | 'parameters updated'} successfully`
+    message: `Trading algorithm ${retrain ? 'retraining initiated' : 'parameters updated'} successfully`
   });
 }
 
@@ -314,7 +314,7 @@ export async function DELETE(request: NextRequest) {
   return NextResponse.json({
     success: true,
     deletion,
-    message: `Trading strategy ${closePositions ? 'and positions deleted' | 'deleted'} successfully`
+    message: `Trading strategy ${closePositions ? 'and positions deleted' : 'deleted'} successfully`
   });
 }
 

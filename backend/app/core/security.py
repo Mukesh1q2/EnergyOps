@@ -17,10 +17,12 @@ import hmac
 
 from app.core.config import get_settings
 from app.models import User
-from app.core.password import verify_password, get_password_hash
 from app.core.database import get_db
 
 settings = get_settings()
+
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # HTTP Bearer token scheme
 security = HTTPBearer(auto_error=False)
@@ -28,9 +30,15 @@ security = HTTPBearer(auto_error=False)
 class SecurityManager:
     """Security and authentication manager"""
     
-    # Re-export password functions for backward compatibility
-    verify_password = staticmethod(verify_password)
-    get_password_hash = staticmethod(get_password_hash)
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash"""
+        return pwd_context.verify(plain_password, hashed_password)
+    
+    @staticmethod
+    def get_password_hash(password: str) -> str:
+        """Generate password hash"""
+        return pwd_context.hash(password)
     
     @staticmethod
     def generate_token(data: dict, token_type: str = "access") -> str:
@@ -110,7 +118,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """Get current authenticated user"""
-    # Lazy import to avoid circular dependency
+    # Import here to avoid circular dependency
     from app.crud.user import user_crud
     
     if not credentials:
@@ -320,6 +328,23 @@ def mask_email(email: str) -> str:
     
     return f"{masked_local}@{masked_domain}"
 
+# Convenience functions for backward compatibility
+def create_access_token(user_id: str, organization_id: str = None) -> str:
+    """Create access token (convenience wrapper)"""
+    return SecurityManager.create_access_token(user_id, organization_id or "")
+
+def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
+    """Verify token (convenience wrapper)"""
+    return SecurityManager.verify_token(token, token_type)
+
+def get_password_hash(password: str) -> str:
+    """Get password hash (convenience wrapper)"""
+    return SecurityManager.get_password_hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password (convenience wrapper)"""
+    return SecurityManager.verify_password(plain_password, hashed_password)
+
 # Export main classes and functions
 __all__ = [
     "SecurityManager",
@@ -332,5 +357,9 @@ __all__ = [
     "SECURITY_HEADERS",
     "generate_secure_token",
     "hash_sensitive_data",
-    "mask_email"
+    "mask_email",
+    "create_access_token",
+    "verify_token",
+    "get_password_hash",
+    "verify_password"
 ]

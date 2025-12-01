@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Cog6ToothIcon,
@@ -27,6 +27,41 @@ import { clsx } from 'clsx'
 import { featureFlagService } from '@/lib/feature-flags/FeatureFlagService'
 import { COMPLETE_FEATURE_CATALOG, FEATURE_CATEGORIES } from '@/lib/feature-flags/FeatureCatalog'
 import type { FeatureDefinition } from '@/lib/feature-flags/FeatureFlagService'
+
+/**
+ * Hook to isolate scroll events within a container, preventing propagation
+ * to parent components. This prevents modal scroll from triggering
+ * unintended state mutations in the dashboard.
+ * Validates: Requirements 2.3, 2.4
+ */
+function useScrollIsolation(ref: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    const container = ref.current
+    if (!container) return
+
+    const handleScroll = (e: Event) => {
+      e.stopPropagation()
+    }
+
+    const handleWheel = (e: WheelEvent) => {
+      e.stopPropagation()
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.stopPropagation()
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    container.addEventListener('wheel', handleWheel, { passive: true })
+    container.addEventListener('touchmove', handleTouchMove, { passive: true })
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('wheel', handleWheel)
+      container.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [ref])
+}
 
 interface FeatureSettingsProps {
   isOpen: boolean
@@ -71,6 +106,11 @@ export function FeatureSettings({
   userId,
   onFeaturesUpdated
 }: FeatureSettingsProps) {
+  // Ref for scroll isolation - prevents scroll events from propagating to parent
+  // Validates: Requirements 2.3, 2.4
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  useScrollIsolation(scrollContainerRef)
+  
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [features, setFeatures] = useState<FeatureDefinition[]>([])
   const [orgSettings, setOrgSettings] = useState<Map<string, { enabled: boolean; config: any }>>(new Map())
@@ -79,6 +119,7 @@ export function FeatureSettings({
   const [isSaving, setIsSaving] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Map<string, string[]>>(new Map())
+  const [validationWarnings, setValidationWarnings] = useState<Map<string, string[]>>(new Map())
 
   useEffect(() => {
     if (isOpen) {
@@ -109,18 +150,25 @@ export function FeatureSettings({
     }
   }
 
+  /**
+   * Handle individual feature toggle with persistence
+   * Validates: Requirements 5.1, 5.2, 5.5
+   * - Ensures featureFlagService.setFeatureEnabled() is called and awaited
+   * - Updates local state only after successful API response
+   * - Checks dependencies before enabling features
+   * - Displays warnings if dependencies not met
+   */
   const handleFeatureToggle = async (featureId: string, enabled: boolean) => {
     try {
-      const newSettings = new Map(orgSettings)
-      const current = newSettings.get(featureId) || { enabled: false, config: {} }
-      
-      // Validate feature change
-      const validation = await featureFlagService['validateFeatureChange'](
+      // First, validate the feature change including dependencies
+      // Validates: Requirements 5.5
+      const validation = await featureFlagService.validateFeatureChange(
         organizationId, 
         featureId, 
         enabled
       )
       
+      // Handle validation errors - block the toggle
       if (!validation.valid) {
         setValidationErrors(prev => {
           const errors = new Map(prev)
@@ -130,6 +178,23 @@ export function FeatureSettings({
         return
       }
       
+      // Handle validation warnings - show but allow toggle
+      // Validates: Requirements 5.5
+      if (validation.warnings && validation.warnings.length > 0) {
+        setValidationWarnings(prev => {
+          const warnings = new Map(prev)
+          warnings.set(featureId, validation.warnings)
+          return warnings
+        })
+      } else {
+        // Clear warnings if none
+        setValidationWarnings(prev => {
+          const warnings = new Map(prev)
+          warnings.delete(featureId)
+          return warnings
+        })
+      }
+      
       // Clear any existing errors
       setValidationErrors(prev => {
         const errors = new Map(prev)
@@ -137,10 +202,31 @@ export function FeatureSettings({
         return errors
       })
       
+      const current = orgSettings.get(featureId) || { enabled: false, config: {} }
+      
+      // Persist to backend FIRST, then update local state
+      // Validates: Requirements 5.1, 5.2
+      await featureFlagService.setFeatureEnabled(
+        organizationId,
+        featureId,
+        enabled,
+        current.config,
+        userId
+      )
+      
+      // Only update local state after successful API response
+      const newSettings = new Map(orgSettings)
       newSettings.set(featureId, { ...current, enabled })
       setOrgSettings(newSettings)
+      
     } catch (error) {
       console.error('Error toggling feature:', error)
+      // Show error to user
+      setValidationErrors(prev => {
+        const errors = new Map(prev)
+        errors.set(featureId, ['Failed to save feature toggle. Please try again.'])
+        return errors
+      })
     }
   }
 
@@ -174,24 +260,70 @@ export function FeatureSettings({
     }
   }
 
+  /**
+   * Handle bulk save of all feature changes
+   * Validates: Requirements 5.4
+   * - Ensures setBulkFeatures() is properly awaited
+   * - Implements atomic save (all or nothing)
+   */
   const handleSaveChanges = async () => {
     try {
       setIsSaving(true)
       
+      // Clear any previous validation errors before attempting save
+      setValidationErrors(new Map())
+      
       const bulkFeatures: Record<string, { enabled: boolean; configuration?: any }> = {}
       
+      // Validate all features before saving (atomic validation)
+      // Validates: Requirements 5.4, 5.5
+      const validationErrors: Map<string, string[]> = new Map()
+      
       for (const [featureId, settings] of orgSettings.entries()) {
+        // Check dependencies for enabled features
+        if (settings.enabled) {
+          const feature = features.find(f => f.id === featureId)
+          if (feature && feature.dependencies.length > 0) {
+            const unmetDependencies = feature.dependencies.filter(depId => {
+              const depSettings = orgSettings.get(depId)
+              return !depSettings?.enabled
+            })
+            
+            if (unmetDependencies.length > 0) {
+              const depNames = unmetDependencies.map(depId => {
+                const dep = features.find(f => f.id === depId)
+                return dep?.name || depId
+              })
+              validationErrors.set(featureId, [`Required dependencies not enabled: ${depNames.join(', ')}`])
+            }
+          }
+        }
+        
         bulkFeatures[featureId] = { 
           enabled: settings.enabled, 
           configuration: settings.config 
         }
       }
       
+      // If any validation errors, abort the entire save (atomic - all or nothing)
+      if (validationErrors.size > 0) {
+        setValidationErrors(validationErrors)
+        return
+      }
+      
+      // Perform atomic bulk save - all features saved together
+      // Validates: Requirements 5.4
       await featureFlagService.setBulkFeatures(organizationId, bulkFeatures, userId)
+      
+      // Only notify parent after successful save
       onFeaturesUpdated?.()
       
     } catch (error) {
       console.error('Error saving features:', error)
+      // Show generic error for bulk save failure
+      setValidationErrors(new Map([
+        ['_bulk_save', ['Failed to save feature changes. Please try again.']]
+      ]))
     } finally {
       setIsSaving(false)
     }
@@ -222,6 +354,7 @@ export function FeatureSettings({
   const FeatureCard = ({ feature }: { feature: FeatureDefinition }) => {
     const settings = orgSettings.get(feature.id) || { enabled: false, config: {} }
     const errors = validationErrors.get(feature.id) || []
+    const warnings = validationWarnings.get(feature.id) || []
     const isSelected = selectedFeatures.has(feature.id)
     
     return (
@@ -233,7 +366,8 @@ export function FeatureSettings({
           isSelected 
             ? 'border-blue-500 shadow-md' 
             : 'border-gray-200 dark:border-gray-700',
-          errors.length > 0 && 'border-red-300 dark:border-red-700'
+          errors.length > 0 && 'border-red-300 dark:border-red-700',
+          warnings.length > 0 && errors.length === 0 && 'border-yellow-300 dark:border-yellow-700'
         )}
       >
         <div className="flex items-start justify-between mb-4">
@@ -319,6 +453,25 @@ export function FeatureSettings({
                 <ul className="text-sm text-red-600 dark:text-red-300 mt-1 space-y-1">
                   {errors.map((error, index) => (
                     <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Validation warnings - Validates: Requirements 5.5 */}
+        {warnings.length > 0 && (
+          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-start space-x-2">
+              <InformationCircleIcon className="h-5 w-5 text-yellow-500 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  Warning
+                </h4>
+                <ul className="text-sm text-yellow-600 dark:text-yellow-300 mt-1 space-y-1">
+                  {warnings.map((warning, index) => (
+                    <li key={index}>• {warning}</li>
                   ))}
                 </ul>
               </div>
@@ -433,6 +586,18 @@ export function FeatureSettings({
                     </button>
                   </div>
 
+                  {/* Bulk save error display */}
+                  {validationErrors.has('_bulk_save') && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <XMarkIcon className="h-5 w-5 text-red-500" />
+                        <span className="text-sm text-red-600 dark:text-red-300">
+                          {validationErrors.get('_bulk_save')?.[0]}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Search and filters */}
                   <div className="flex items-center space-x-4">
                     <div className="flex-1 relative">
@@ -476,8 +641,9 @@ export function FeatureSettings({
                   </div>
                 </div>
 
-                {/* Features grid */}
-                <div className="max-h-96 overflow-y-auto p-6">
+                {/* Features grid - with scroll isolation to prevent state mutations */}
+                {/* Validates: Requirements 2.3, 2.4 */}
+                <div ref={scrollContainerRef} className="max-h-96 overflow-y-auto p-6">
                   {filteredFeatures.length === 0 ? (
                     <div className="text-center py-12">
                       <InformationCircleIcon className="mx-auto h-12 w-12 text-gray-400" />

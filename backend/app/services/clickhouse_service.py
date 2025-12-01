@@ -29,11 +29,11 @@ class ClickHouseService:
         if not self._initialized:
             try:
                 self.client = get_client(
-                    host=settings.CLICKHOUSE_HOST,
-                    port=settings.CLICKHOUSE_PORT,
-                    username=settings.CLICKHOUSE_USER,
-                    password=settings.CLICKHOUSE_PASSWORD,
-                    database=settings.CLICKHOUSE_DATABASE,
+                    host=settings.clickhouse_host,
+                    port=settings.clickhouse_port,
+                    username=settings.clickhouse_user,
+                    password=settings.clickhouse_password,
+                    database=settings.clickhouse_database,
                     settings={
                         'readonly': 1,
                         'max_execution_time': 300,

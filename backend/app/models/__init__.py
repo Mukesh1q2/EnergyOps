@@ -76,7 +76,7 @@ class Organization(BaseModel):
     status = Column(CHAR(20), nullable=False, default='trial', index=True)
     subscription_tier = Column(String(50), default='trial', index=True)
     subscription_expires_at = Column(DateTime(timezone=True))
-    meta_data = Column(JSONB, default={})
+    org_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
@@ -204,7 +204,7 @@ class Asset(BaseModel):
     status = Column(CHAR(20), nullable=False, default='offline', index=True)
     commissioning_date = Column(DateTime(timezone=True))
     decommissioning_date = Column(DateTime(timezone=True))
-    meta_data = Column(JSONB, default={})
+    asset_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     organization = relationship("Organization", back_populates="assets")
@@ -254,7 +254,7 @@ class Bid(BaseModel):
     submitted_at = Column(DateTime(timezone=True))
     response_at = Column(DateTime(timezone=True))
     notes = Column(Text)
-    meta_data = Column(JSONB, default={})
+    bid_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     organization = relationship("Organization", back_populates="bids")
@@ -346,7 +346,7 @@ class Dataset(BaseModel):
     schema = Column(JSONB, nullable=False)
     created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     is_public = Column(Boolean, default=False, index=True)
-    meta_data = Column(JSONB, default={})
+    forecast_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     organization = relationship("Organization", back_populates="datasets")
@@ -391,7 +391,7 @@ class MLModel(BaseModel):
     model_file_path = Column(Text)
     model_size_mb = Column(DECIMAL(8, 2))
     created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    meta_data = Column(JSONB, default={})
+    model_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     organization = relationship("Organization", back_populates="ml_models")
@@ -449,7 +449,7 @@ class Dashboard(BaseModel):
     is_public = Column(Boolean, default=False, index=True)
     is_template = Column(Boolean, default=False, index=True)
     created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    meta_data = Column(JSONB, default={})
+    dashboard_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     organization = relationship("Organization", back_populates="dashboards")
@@ -471,7 +471,7 @@ class DashboardWidget(BaseModel):
     data_source_id = Column(PGUUID(as_uuid=True), ForeignKey("datasets.id"))
     refresh_interval = Column(Integer, default=300, index=True)  # seconds
     is_visible = Column(Boolean, default=True, index=True)
-    meta_data = Column(JSONB, default={})
+    widget_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     dashboard = relationship("Dashboard", back_populates="widgets")
@@ -527,7 +527,7 @@ class LegalAuditTrail(BaseModel):
     supporting_documents = Column(JSONB, default=[])
     effective_from = Column(DateTime(timezone=True))
     effective_to = Column(DateTime(timezone=True))
-    meta_data = Column(JSONB, default={})
+    feature_metadata = Column("metadata", JSONB, default={})
     
     # Relationships
     organization = relationship("Organization", back_populates="legal_audit_trails")
@@ -627,17 +627,3 @@ Index('idx_audit_logs_organization', AuditLog.organization_id)
 Index('idx_audit_logs_user', AuditLog.user_id)
 Index('idx_audit_logs_resource', AuditLog.resource_type, AuditLog.resource_id)
 Index('idx_audit_logs_created_at', AuditLog.created_at)
-
-
-# Market Data Model (for real-time data)
-class MarketData(BaseModel):
-    """Market data model for real-time updates"""
-    __tablename__ = "market_data_realtime"
-    
-    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
-    market_zone = Column(String(50), nullable=False, index=True)
-    price = Column(DECIMAL(10, 4), nullable=False)
-    volume = Column(DECIMAL(10, 3))
-    price_type = Column(String(50))
-    location = Column(String(255))
-    meta_data = Column(JSONB, default={})

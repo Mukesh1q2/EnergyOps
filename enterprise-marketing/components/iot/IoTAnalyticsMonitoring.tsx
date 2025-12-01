@@ -10,7 +10,7 @@ import {
   TrendingUpIcon,
   TrendingDownIcon,
   CpuChipIcon,
-  BatteryIcon,
+  Battery100Icon,
   ThermometerIcon,
   BoltIcon,
   WifiIcon,

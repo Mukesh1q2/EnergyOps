@@ -837,17 +837,6 @@ function generateCapacityUtilization() {
   };
 }
 
-function generateMaintenanceScheduling() {
-  return {
-    preventive_maintenance_schedule: generatePreventiveMaintenanceSchedule(),
-    condition_based_maintenance: true,
-    maintenance_cost_optimization: 20 + Math.random() * 25,
-    equipment_lifecycle_management: true,
-    maintenance_resource_planning: true,
-    predictive_failure_analysis: true
-  };
-}
-
 function generatePreventiveMaintenanceSchedule() {
   return {
     maintenance_frequency_optimization: 15 + Math.random() * 20,

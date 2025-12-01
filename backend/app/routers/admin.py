@@ -15,10 +15,6 @@ from ..services.rbac_service import RBACService, RoleType, PermissionType
 from ..services.admin_service import AdminService, FeatureFlag, FeatureFlagStatus, SystemHealth, AuditLog, AdminConfig, ThemeConfig
 from ..services.billing_service import BillingService, BillingPlan, Subscription, Invoice, UsageRecord
 from ..services.usage_tracking_service import UsageTrackingService, QuotaStatus
-from ..services.rbac_service import get_rbac_service
-from ..services.billing_service import get_billing_service
-from ..services.admin_service import get_admin_service
-from ..services.usage_tracking_service import get_usage_tracking_service
 
 # Initialize router
 admin_router = APIRouter(prefix="/admin", tags=["Admin Panel"])
