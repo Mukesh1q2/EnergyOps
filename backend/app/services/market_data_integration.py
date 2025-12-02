@@ -6,6 +6,7 @@ Handles live data feeds from major US electricity markets (PJM, CAISO, ERCOT)
 import asyncio
 import json
 import logging
+import os
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, AsyncGenerator
@@ -15,8 +16,23 @@ from enum import Enum
 import aiohttp
 import pandas as pd
 import pytz
-from kafka import KafkaProducer
-from kafka.errors import KafkaError
+
+# Lazy import for Kafka to prevent startup failures
+KafkaProducer = None
+KafkaError = None
+
+def _load_kafka():
+    """Lazy load Kafka modules"""
+    global KafkaProducer, KafkaError
+    if KafkaProducer is None:
+        try:
+            from kafka import KafkaProducer as KP
+            from kafka.errors import KafkaError as KE
+            KafkaProducer = KP
+            KafkaError = KE
+        except ImportError:
+            logging.warning("kafka-python not installed, Kafka features disabled")
+    return KafkaProducer is not None
 
 logger = logging.getLogger(__name__)
 
@@ -436,17 +452,37 @@ class ERCOTConnector(MarketDataConnector):
 class MarketDataIntegrationService:
     """Main service for market data integration and management"""
     
-    def __init__(self, bootstrap_servers: str = "localhost:9092"):
+    def __init__(self, bootstrap_servers: str = None):
         self.connectors = {
             MarketZone.PJM: PJMConnector(),
             MarketZone.CAISO: CAISOConnector(),
             MarketZone.ERCOT: ERCOTConnector()
         }
-        self.kafka_producer = KafkaProducer(
-            bootstrap_servers=bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8')
-        )
+        self._kafka_producer = None
+        self._bootstrap_servers = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+        self._kafka_enabled = os.getenv("ENABLE_KAFKA", "false").lower() == "true"
         self.credentials = {}
+    
+    @property
+    def kafka_producer(self):
+        """Lazy initialization of Kafka producer with graceful failure handling"""
+        if self._kafka_producer is None and self._kafka_enabled:
+            if not _load_kafka():
+                logger.warning("Kafka module not available. Running without Kafka.")
+                self._kafka_enabled = False
+                return None
+            try:
+                self._kafka_producer = KafkaProducer(
+                    bootstrap_servers=self._bootstrap_servers,
+                    value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
+                    request_timeout_ms=5000,
+                    api_version_auto_timeout_ms=5000
+                )
+                logger.info(f"Kafka producer connected to {self._bootstrap_servers}")
+            except Exception as e:
+                logger.warning(f"Kafka producer initialization failed: {e}. Running without Kafka.")
+                self._kafka_enabled = False
+        return self._kafka_producer
         
     async def authenticate_all_sources(self, credentials: Dict[MarketZone, Dict[str, str]]) -> Dict[MarketZone, bool]:
         """Authenticate with all market data sources"""
@@ -504,6 +540,10 @@ class MarketDataIntegrationService:
     
     def _publish_to_kafka(self, market_zone: MarketZone, price: MarketPrice):
         """Publish price data to Kafka topic"""
+        if not self._kafka_enabled or self.kafka_producer is None:
+            logger.debug(f"Kafka disabled, skipping publish for {market_zone}")
+            return
+            
         try:
             topic = f"market_data.{market_zone.value.lower()}"
             message = {
@@ -522,8 +562,8 @@ class MarketDataIntegrationService:
             self.kafka_producer.send(topic, value=message)
             logger.debug(f"Published {market_zone} price to {topic}")
             
-        except KafkaError as e:
-            logger.error(f"Error publishing to Kafka: {e}")
+        except Exception as e:
+            logger.warning(f"Error publishing to Kafka: {e}")
     
     async def backfill_historical_data(self, start_date: datetime, end_date: datetime) -> Dict[MarketZone, int]:
         """Backfill historical data for all sources"""

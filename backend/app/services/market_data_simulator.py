@@ -6,14 +6,32 @@ Generates realistic market data for PJM, CAISO, and ERCOT markets
 import asyncio
 import json
 import logging
+import os
 import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
 
 import aiohttp
-from kafka import KafkaProducer
-from kafka.errors import KafkaError
+
+# Lazy import for Kafka
+KafkaProducer = None
+KafkaError = None
+
+def _load_kafka():
+    """Lazy load Kafka modules"""
+    global KafkaProducer, KafkaError
+    if KafkaProducer is None:
+        try:
+            from kafka import KafkaProducer as KP
+            from kafka.errors import KafkaError as KE
+            KafkaProducer = KP
+            KafkaError = KE
+            return True
+        except ImportError:
+            logging.warning("kafka-python not installed, Kafka features disabled")
+            return False
+    return True
 
 from .market_data_integration import MarketZone
 
@@ -23,15 +41,32 @@ logger = logging.getLogger(__name__)
 class MarketDataSimulator:
     """Simulates realistic market data for testing and development"""
     
-    def __init__(self, bootstrap_servers: str = "localhost:9092"):
-        self.bootstrap_servers = bootstrap_servers
-        self.producer = KafkaProducer(
-            bootstrap_servers=bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
-            key_serializer=lambda k: str(k).encode('utf-8') if k else None
-        )
+    def __init__(self, bootstrap_servers: str = None):
+        self.bootstrap_servers = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+        self._producer = None
+        self._kafka_enabled = os.getenv("ENABLE_KAFKA", "false").lower() == "true"
         self.running = False
         self.tasks = []
+    
+    @property
+    def producer(self):
+        """Lazy initialization of Kafka producer"""
+        if self._producer is None and self._kafka_enabled:
+            if not _load_kafka():
+                self._kafka_enabled = False
+                return None
+            try:
+                self._producer = KafkaProducer(
+                    bootstrap_servers=self.bootstrap_servers,
+                    value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8'),
+                    key_serializer=lambda k: str(k).encode('utf-8') if k else None,
+                    request_timeout_ms=5000
+                )
+                logging.info(f"Kafka producer connected for simulator")
+            except Exception as e:
+                logging.warning(f"Kafka producer initialization failed: {e}")
+                self._kafka_enabled = False
+        return self._producer
         
         # Market configuration
         self.market_configs = {
@@ -153,20 +188,17 @@ class MarketDataSimulator:
             timestamp = datetime.now()
             price_data = self._generate_price_data(market_zone, timestamp)
             
-            # Publish to Kafka
-            topic = f"market_data.{market_zone.value.lower()}"
-            key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
-            
-            self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
+            # Publish to Kafka if enabled
+            if self._kafka_enabled and self.producer:
+                topic = f"market_data.{market_zone.value.lower()}"
+                key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
+                self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
             
             logger.debug(f"Simulated {market_zone.value} data: ${price_data['price']:.2f} at {price_data['location']}")
             return True
             
-        except KafkaError as e:
-            logger.error(f"Error simulating {market_zone.value} data: {e}")
-            return False
         except Exception as e:
-            logger.error(f"Unexpected error in simulation: {e}")
+            logger.error(f"Error simulating {market_zone.value} data: {e}")
             return False
     
     async def _simulate_bulk_update(self, market_zone: MarketZone, count: int = 10) -> int:
@@ -181,13 +213,13 @@ class MarketDataSimulator:
             price_data = self._generate_price_data(market_zone, timestamp)
             
             try:
-                topic = f"market_data.{market_zone.value.lower()}"
-                key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
-                
-                self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
+                if self._kafka_enabled and self.producer:
+                    topic = f"market_data.{market_zone.value.lower()}"
+                    key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
+                    self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
                 success_count += 1
                 
-            except KafkaError as e:
+            except Exception as e:
                 logger.error(f"Error sending bulk data for {market_zone.value}: {e}")
                 continue
         
@@ -239,13 +271,13 @@ class MarketDataSimulator:
                             price_data = self._generate_price_data(market_zone, timestamp)
                             price_data['timestamp'] = timestamp.isoformat()
                             
-                            topic = f"market_data.{market_zone.value.lower()}"
-                            key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
-                            
-                            self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
+                            if self._kafka_enabled and self.producer:
+                                topic = f"market_data.{market_zone.value.lower()}"
+                                key = f"{market_zone.value.lower()}.{timestamp.isoformat()}"
+                                self.producer.send(topic, key=key.encode('utf-8'), value=price_data)
                             total_records += 1
                             
-                        except KafkaError as e:
+                        except Exception as e:
                             logger.error(f"Error simulating historical data: {e}")
                             continue
                 
@@ -263,13 +295,14 @@ class MarketDataSimulator:
             if not task.done():
                 task.cancel()
         
-        # Close Kafka producer
-        self.producer.close()
+        # Close Kafka producer if initialized
+        if self._producer:
+            self._producer.close()
         
         logger.info("Market data simulation stopped")
 
 
-# Global simulator instance
+# Global simulator instance (lazy initialization - won't connect to Kafka until used)
 market_simulator = MarketDataSimulator()
 
 
