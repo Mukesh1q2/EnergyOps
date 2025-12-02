@@ -770,6 +770,7 @@ export function WidgetRenderer({ widget, layoutItem, onAction, isViewMode, user 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0) // Key to force re-render on refresh
 
   useEffect(() => {
     // Simulate loading
@@ -782,10 +783,12 @@ export function WidgetRenderer({ widget, layoutItem, onAction, isViewMode, user 
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    // Simulate refresh
+    // Increment refresh key to force chart data regeneration
+    setRefreshKey(prev => prev + 1)
+    // Show spinner for visual feedback
     setTimeout(() => {
       setIsRefreshing(false)
-    }, 1000)
+    }, 800)
   }
 
   const handleAction = (action: string, data?: any) => {
@@ -1095,7 +1098,7 @@ export function WidgetRenderer({ widget, layoutItem, onAction, isViewMode, user 
       {/* Widget Content */}
       <div className="flex-1 overflow-hidden">
         <motion.div
-          key={widget.id}
+          key={`${widget.id}-${refreshKey}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="h-full"

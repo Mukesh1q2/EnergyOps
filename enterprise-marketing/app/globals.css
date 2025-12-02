@@ -448,3 +448,82 @@ body {
     --color-focus: #00ffff;
   }
 }
+
+/* Form element styling for proper text visibility */
+select,
+input,
+textarea {
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+}
+
+select option {
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+}
+
+/* Dark mode form elements */
+[data-theme="dark"] select,
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+.dark select,
+.dark input,
+.dark textarea {
+  color: #f8fafc;
+  background-color: #1e293b;
+}
+
+[data-theme="dark"] select option,
+.dark select option {
+  color: #f8fafc;
+  background-color: #1e293b;
+}
+
+/* Auto theme form elements */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] select,
+  [data-theme="auto"] input,
+  [data-theme="auto"] textarea {
+    color: #f8fafc;
+    background-color: #1e293b;
+  }
+  
+  [data-theme="auto"] select option {
+    color: #f8fafc;
+    background-color: #1e293b;
+  }
+}
+
+/* Ensure dropdown menus have proper contrast */
+[class*="dark"] select,
+[class*="dark"] input,
+[class*="dark"] textarea {
+  color: #f8fafc !important;
+  background-color: #374151 !important;
+}
+
+[class*="dark"] select option {
+  color: #f8fafc !important;
+  background-color: #374151 !important;
+}
+
+/* Fix for Tailwind dark mode class */
+.dark select,
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark textarea {
+  color: #f1f5f9;
+  background-color: #374151;
+  border-color: #4b5563;
+}
+
+.dark select:focus,
+.dark input:focus,
+.dark textarea:focus {
+  border-color: #3b82f6;
+  outline: none;
+  ring: 2px;
+  ring-color: rgba(59, 130, 246, 0.5);
+}

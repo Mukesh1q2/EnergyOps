@@ -17,6 +17,8 @@ import {
 import { Menu, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import { clsx } from 'clsx'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
 
 interface DashboardHeaderProps {
   onOpenWidgetLibrary: () => void
@@ -25,6 +27,8 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ onOpenWidgetLibrary, onOpenCollaboration, user }: DashboardHeaderProps) {
+  const { logout } = useAuth()
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [notifications, setNotifications] = useState([
     {
@@ -65,6 +69,11 @@ export function DashboardHeader({ onOpenWidgetLibrary, onOpenCollaboration, user
   }
 
   const unreadCount = notifications.filter(n => !n.read).length
+
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
 
   const quickActions = [
     {
@@ -333,6 +342,7 @@ export function DashboardHeader({ onOpenWidgetLibrary, onOpenCollaboration, user
                     <Menu.Item>
                       {({ active }) => (
                         <button
+                          onClick={handleLogout}
                           className={clsx(
                             'flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors',
                             active && 'bg-gray-100 dark:bg-gray-700',

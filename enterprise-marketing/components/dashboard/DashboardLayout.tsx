@@ -233,30 +233,37 @@ export function DashboardLayout({
   }
 
   const handleWidgetAction = (widgetId: string, action: string, data?: any) => {
+    const widget = widgets.find(w => w.id === widgetId)
+    
     switch (action) {
       case 'resize':
         handleWidgetResize(widgetId, data)
         break
       case 'configure':
-        // Open widget configuration modal
+        // Open settings modal for widget configuration
+        if (widget) {
+          setIsSettingsOpen(true)
+        }
         break
       case 'share':
-        // Share specific widget
+        // Open share modal
+        setIsShareOpen(true)
         break
       case 'duplicate':
         // Duplicate widget
-        const widgetToDuplicate = widgets.find(w => w.id === widgetId)
-        if (widgetToDuplicate) {
+        if (widget) {
           const newWidget = {
-            ...widgetToDuplicate,
-            id: `${widgetToDuplicate.id}-copy-${Date.now()}`,
-            title: `${widgetToDuplicate.title} (Copy)`
+            ...widget,
+            id: `${widget.id}-copy-${Date.now()}`,
+            title: `${widget.title} (Copy)`
           }
           onWidgetAdd(newWidget)
         }
         break
       case 'delete':
-        onWidgetDelete(widgetId)
+        if (confirm(`Are you sure you want to delete "${widget?.title || 'this widget'}"?`)) {
+          onWidgetDelete(widgetId)
+        }
         break
       default:
         console.log('Unknown widget action:', action)

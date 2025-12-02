@@ -399,9 +399,9 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user, isFeatureDisa
                   </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="border-b border-gray-200 dark:border-gray-700">
-                  <Tab.Group>
+                {/* Tabs - Tab.Group must wrap both Tab.List and Tab.Panels */}
+                <Tab.Group>
+                  <div className="border-b border-gray-200 dark:border-gray-700">
                     <Tab.List className="flex space-x-8 px-6">
                       {tabs.map(tab => (
                         <Tab
@@ -432,13 +432,12 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user, isFeatureDisa
                         </Tab>
                       ))}
                     </Tab.List>
-                  </Tab.Group>
-                </div>
+                  </div>
 
-                {/* Tab Content - with scroll isolation to prevent state mutations */}
-                {/* Validates: Requirements 2.3, 2.4 */}
-                <div ref={scrollContainerRef} className="h-96 overflow-hidden">
-                  <Tab.Panels>
+                  {/* Tab Content - with scroll isolation to prevent state mutations */}
+                  {/* Validates: Requirements 2.3, 2.4 */}
+                  <div ref={scrollContainerRef} className="h-96 overflow-hidden">
+                    <Tab.Panels>
                     {/* People Tab */}
                     <Tab.Panel className="h-full flex flex-col">
                       <div className="p-6 space-y-6">
@@ -779,8 +778,9 @@ export function ShareDashboard({ isOpen, onClose, dashboard, user, isFeatureDisa
                         </div>
                       </div>
                     </Tab.Panel>
-                  </Tab.Panels>
-                </div>
+                    </Tab.Panels>
+                  </div>
+                </Tab.Group>
 
                 {/* Footer */}
                 <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
